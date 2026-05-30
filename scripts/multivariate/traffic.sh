@@ -15,7 +15,7 @@ data_name=custom
 
 for pred_len in 96 192 336 720
 do
-    python -u run.py \
+    ./.venv/bin/python -u run.py \
       --is_training 1 \
       --root_path $root_path_name \
       --data_path $data_path_name \

@@ -16,7 +16,7 @@ data_name=ETTh2
 
 for pred_len in 96
 do
-    python -u run.py \
+    ./.venv/bin/python -u run.py \
       --is_training 1 \
       --root_path $root_path_name \
       --data_path $data_path_name \

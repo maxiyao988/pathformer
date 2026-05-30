@@ -1,15 +1,26 @@
-__pycache__
+# Python
+__pycache__/
+*.pyc
 
+# Dataset
 dataset/
 
-result/
+# Model checkpoints
+checkpoints/
+*.pth
 
+# Logs
+logs/
+
+# Experiment outputs
+results/
+test_results/
+result.txt
+
+# IDE
 .idea/
-
 .vscode/
 
-venv/
-
+# macOS
 .DS_Store
-
 

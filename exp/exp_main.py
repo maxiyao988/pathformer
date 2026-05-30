@@ -269,7 +269,18 @@ class Exp_Main(Exp_Basic):
         f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         f.write('\n')
         f.write('\n')
+   
         f.close()
+        result_path = './results/' + setting + '/'
+
+        if not os.path.exists(result_path):
+           os.makedirs(result_path)
+
+        np.save(result_path + 'pred.npy', preds)
+        np.save(result_path + 'true.npy', trues)
+
+        print(f"Saved predictions to {result_path}")
+        
         return
 
     def predict(self, setting, load=False):
