@@ -132,7 +132,7 @@ Advisor-requested experimental checklist is completed and reproducible.
 
 - Single-backbone PathFormer track is closed as a negative result due to structural scale instability.
 - Late-fusion track is stable enough for reporting and comparison.
-- Ranking signal remains weak overall (IC close to zero in many settings), but protocol compliance and robustness reporting are complete.
+- Ranking signal remains weak overall (time-series Rank Corr is close to zero in many FSLR settings), but protocol compliance and robustness reporting are complete. Panel-level ranking quality will be reported separately using cross-sectional Rank IC once Experiment 2 is run.
 - `concat` is the safer default branch for interpretation; `gated` is retained as ablation with occasional low-variance degeneration.
 
 ---
@@ -220,7 +220,7 @@ The main decision is to keep the model family stable and compare meaningful freq
 
 #### Experiment 3 — Ablation Study (on the most stable frequency combination)
 
-Because Daily + Weekly is the most stable frequency pair in the current panel evidence, the core ablation should be restricted to that configuration.
+Daily + Weekly is the primary candidate and will be used for the core ablation **if confirmed as the most stable setting in Experiment 2** (Experiment 2 has not been run yet as of this writing — see Phase 3 status below). Do not treat Daily + Weekly as a pre-decided answer; the ablation configuration is selected only after Experiment 2's panel main comparison confirms it.
 
 Compare:
 
@@ -247,9 +247,9 @@ Pooling 24 tickers with very different volatility profiles (e.g. NEE vs PLUG/FCE
 - Report metrics both **pooled** (all tickers together) and **ticker-averaged** (metric computed per ticker, then averaged) — these can diverge a lot and both should be shown.
 - Compute Rank IC **cross-sectionally by date** (rank predictions vs realized returns across tickers on the same date), then average across test dates — do not compute a single pooled time-series rank correlation and call it "IC".
 
-### Revised Panel Main Model: Frequency-Specific + Late Fusion + Router
+### Conceptual Full-Frequency Architecture (Advisor-Advised)
 
-The advisor's preferred panel architecture is:
+The advisor's preferred panel architecture, as a general design, is:
 
 ```
 Hourly Encoder
@@ -260,6 +260,8 @@ Fusion Module (concat / gated late fusion)
 Optional Router (prefer inside each frequency branch)
 Output Head
 ```
+
+**Current implementation: Daily Encoder + Weekly Encoder only.** Under the current data constraint (see Experiment 2), the active panel implementation instantiates only the Daily and Weekly branches; Hourly and Half-Day branches remain deferred extensions, not yet built for the panel.
 
 The important modeling principle is:
 
@@ -286,7 +288,7 @@ This is a more credible and publication-oriented experimental design than simply
 - `scripts/python/panel_download_daily_weekly.py` — daily/weekly OHLCV download pipeline.
 - `scripts/python/panel_build_multiscale_dataset.py` — builds per-ticker panel dataset at Daily and Weekly scales only (verified: `dataset/multiscale_dataset/panel/<TICKER>/` contains only `X_daily.npy`, `X_weekly.npy`, `y_5d/10d/20d.npy`, `meta.csv` — no hourly/half-day files exist for any panel ticker).
 - `scripts/python/panel_adaptive_scale_experiment.py` — currently an exploratory prototype implementing only the PathFormer-family variants (`daily_only`, `weekly_only`, `fixed_multi`, `learnable_weight`, `adaptive_router`); it should be treated as a provisional experiment, not the final panel main benchmark.
-- **Gap confirmed by repo search:** there is no Ridge / XGBoost / LSTM / MLP / Vanilla-Transformer panel script yet anywhere in `scripts/python/`. All non-PathFormer baselines needed for Experiment 1's "1 ML + 1 DL + 2 Transformer" checklist still need to be written from scratch for the panel; they exist today only in the FSLR-only Task 8 scripts (`task8_baseline_linear_multihorizon.py`, `task8_baseline_vanilla_transformer.py`, `task8_baseline_swim.py`), which are not yet ported to the pooled-panel loader.
+- **Gap confirmed by repo search:** there is no Ridge / XGBoost / LSTM / MLP / Vanilla-Transformer panel script yet anywhere in `scripts/python/`. All non-PathFormer baselines needed for Experiment 2's "1 ML + 1 DL + 2 Transformer" checklist still need to be written from scratch for the panel; they exist today only in the FSLR-only Task 8 scripts (`task8_baseline_linear_multihorizon.py`, `task8_baseline_vanilla_transformer.py`, `task8_baseline_swim.py`), which are not yet ported to the pooled-panel loader.
 
 The current priority is to change the panel experiment from a full-frequency replication to a stable frequency-specific baseline plus a clean, advisor-aligned ablation ladder.
 
@@ -360,7 +362,7 @@ Legend:
 - [Pending] Decide which "improved Transformer" to report: Late-Fusion PathFormer (frozen FSLR variant, needs panel port) vs the newer adaptive multi-scale PathFormer in `panel_adaptive_scale_experiment.py`.
 - [Pending] Implement or standardize the benchmark runner so that all four baseline models share identical targets, splits, and metrics.
   - Inputs: panel Daily only / Weekly only / Daily + Weekly (see data-availability constraint under Experiment 2).
-  - Outputs: MSE, MAE, Corr, Rank IC, DA, Pred Std / True Std.
+  - Outputs: MSE, MAE, Corr, cross-sectional Rank IC, Direction Accuracy, Pred Std / True Std.
 - [Pending] Decide the exact benchmark set for the main paper table.
   - Minimum recommended set: Ridge, LSTM, Vanilla Transformer, Late-Fusion PathFormer.
   - Optional stronger model: XGBoost or adaptive router variant if it survives stability checks.
@@ -379,14 +381,15 @@ This is the main experimental block.
 
 **Immediate action before running Experiment 2:** the Ridge / LSTM / Vanilla Transformer / Late-Fusion PathFormer scripts for the panel do not exist yet (see Panel Pipeline Status gap above) — Phase 2 must produce runnable scripts before Phase 3 can start.
 - [Pending] Compare these models with consistent evaluation metrics.
+  - MSE
   - MAE
   - Corr
-  - Rank IC
+  - Cross-sectional Rank IC
   - Direction Accuracy
   - Pred Std / True Std
   - Stability trend across the test window
 - [Pending] Select the stable frequency combination for the main insight.
-  - Based on current evidence, Daily + Weekly is the primary candidate for the stable multi-scale panel configuration.
+  - This selection is the output of Experiment 2, not a pre-decided input; Daily + Weekly is only the leading candidate pending confirmation.
 
 ### Phase 4 — Core PathFormer ablation on the most stable frequency pair
 
