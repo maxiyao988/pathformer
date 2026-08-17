@@ -138,124 +138,222 @@ Mean±Std summary (test set):
 - Formal solver: **SVD**
 - Alpha selected using validation only
 - Cross-sectional Rank IC computed by date
-- Numerical solver robustness passed
+- Numerical solver robustness check passed
+- Final solver ambiguity resolved: **Ridge is frozen**
 - No leakage
-- Ridge does not beat naive baseline on MSE
-- Weekly-only has best MSE
-- Daily+Weekly has best Rank IC
-- Predictions are under-dispersed
+- Ridge does not beat naive baseline on pooled MSE
+- Weekly-only has the best pooled MSE at 5d / 10d / 20d
+- Daily+Weekly has the best mean cross-sectional Rank IC at 5d / 10d / 20d
+- Ridge predictions are under-dispersed
 
-These last three items will become the reference benchmark for LSTM / Transformer.
+This is the frozen formal machine-learning benchmark for the panel.
+
+Relevant files:
+
+- `scripts/python/panel_baseline_ridge.py`
+- `scripts/python/panel_ridge_validation.py`
+- `scripts/python/panel_ridge_solver_final_check.py`
+- `dataset/audit/panel_ridge_solver_final_check.csv`
+- `dataset/audit/panel_ridge_alpha_validation_curve.csv`
+- `dataset/audit/panel_ridge_solver_final_predictions.csv`
+- `dataset/audit/panel_ridge_solver_final_summary.txt`
+- `dataset/audit/panel_naive_baseline_summary.csv`
+
+### Final solver decision
+
+The final numerical-stability check passed with the following solver agreement:
+
+- auto vs lsqr_tight min prediction corr ≈ 0.9999
+- auto vs SVD min prediction corr ≈ 0.9999
+- lsqr_tight vs SVD min prediction corr ≈ 1.0000
+- Best-MSE frequency choice does not change across solvers
+- Best-Rank-IC frequency choice does not change across solvers
+- Ridge freeze decision = **True**
+
+SVD is the formal Ridge solver for the project benchmark.
 
 ---
 
-## LSTM Fair-Comparison Protocol (Mandatory)
+## LSTM Panel Baseline — SINGLE-SEED COMPLETE / ARCHITECTURE FROZEN
 
-The research question is explicit:
+The research question remains explicit:
 
 > Does nonlinear sequential modeling add value over Ridge?
 
-To answer this correctly, the LSTM experiment must be designed to be fully comparable to the ridge baseline.
+This LSTM baseline is now a completed single-seed development benchmark for the frozen panel. It is not the final multi-seed paper result.
 
-### Fairness requirements
+### Completed implementation
 
-- Universe: 17-stock balanced panel
-- Train / Val / Test: same split as Ridge
-  - Train: 31,008 samples
-  - Val: 6,647 samples
-  - Test: 6,664 samples
-- Frequency: Daily-only / Weekly-only / Daily+Weekly
-- Horizon: 5d / 10d / 20d
-- Normalization: frozen, identical to Ridge
-- Metric: same metric set as Ridge, including cross-sectional Rank IC by date
-- Leakage: none
-- Target construction: same labels, same timing, same sample index
+The panel-ready LSTM baseline exists and has been run successfully:
 
-In other words, the comparison is not "LSTM vs some custom pipeline"; it is 
-"LSTM vs Ridge under the same panel, same split, same features, same targets, same normalization, same metrics".
+- Script: `scripts/python/panel_baseline_lstm.py`
 
-### Architecture design (first LSTM version)
+Architecture and training protocol:
 
-Keep the design deliberately simple.
-
-#### Daily-only
+Daily-only:
 
 ```text
 Daily sequence
-→ LSTM
-→ representation
+→ 1-layer unidirectional LSTM
+→ final hidden representation
 → linear head
-→ return
+→ scalar return prediction
 ```
 
-#### Weekly-only
+Weekly-only:
 
 ```text
 Weekly sequence
-→ LSTM
-→ representation
+→ 1-layer unidirectional LSTM
+→ final hidden representation
 → linear head
-→ return
+→ scalar return prediction
 ```
 
-#### Daily+Weekly
-
-Do not concatenate the raw daily and weekly sequences into one long sequence.
+Daily+Weekly:
 
 ```text
 Daily
-→ Daily LSTM ──┐
-               ├─ concat → prediction head
+→ Daily LSTM ─┐
+               ├→ concat → MLP head → scalar prediction
 Weekly         │
 → Weekly LSTM ─┘
 ```
 
-This follows the same architecture philosophy as the later models:
+Settings:
 
-- frequency-specific encoders
-- late fusion
-- shared comparison design across LSTM / Transformer / PathFormer
+- hidden_size = 64
+- num_layers = 1
+- unidirectional
+- no attention
+- no router
+- no ticker embeddings
+- no dropout branch introduced
+- seed = 42
+- batch_size = 32
+- learning_rate = 1e-4
+- Adam optimizer
+- HuberLoss(delta=1.0)
+- gradient clipping max_norm=1.0
+- max_epochs = 100
+- early stopping patience = 10
+- best validation checkpoint restored before test evaluation
+- MPS used on Apple Silicon when available
+- same frozen data / split / normalization / metrics as Ridge
 
-This is important because the goal is not to test a random nonlinear design, but to test whether nonlinear sequential modeling can learn temporal dependence that Ridge cannot.
+The full 3 frequency settings × 3 horizons = 9 experiments completed successfully.
 
-### Three benchmark questions for LSTM
+Total runtime: approximately 29m 53s.
 
-#### Benchmark A: Naive MSE
+No numerical instability was observed:
 
-Ridge does not beat the naive point-forecast baseline on MSE. The question is:
+- no NaN/Inf
+- no output explosion
+- no FSLR-style constant collapse
+- early stopping behaved normally
+- predictions remain under-dispersed overall
 
-> Can LSTM genuinely beat the naive baseline?
+### Single-seed results
 
-#### Benchmark B: Ridge Rank IC
+Best MSE setting by horizon:
 
-For 5d, Ridge Daily+Weekly already has meaningful rank signal. The key question is:
+- 5d: Daily-only
+  - MSE = 0.010046
+- 10d: Daily+Weekly
+  - MSE = 0.019699
+- 20d: Daily+Weekly
+  - MSE = 0.040723
 
-> Can LSTM match or exceed Ridge Rank IC, especially at 5d?
+Best mean cross-sectional Rank IC by horizon:
 
-#### Benchmark C: Prediction dispersion
+- 5d: Daily+Weekly
+  - Rank IC = 0.157300
+- 10d: Weekly-only
+  - Rank IC = 0.070441
+- 20d: Daily+Weekly
+  - Rank IC = 0.082596
 
-Ridge predictions are under-dispersed:
+Aggregate comparison vs the frozen SVD Ridge benchmark:
 
-- PredStd / TrueStd < 1
+- MSE wins vs Ridge: 6 / 9
+- MSE wins vs naive baseline: 0 / 9
+- Rank IC wins vs Ridge: 6 / 9
 
-The key question is:
+Frequency-complementarity pattern:
 
-> Does LSTM produce a more realistic dispersion ratio close to 1 without the FSLR-style instability or explosion?
+- 5d: Daily+Weekly Rank IC > Daily-only = True; Daily+Weekly Rank IC > Weekly-only = True
+- 10d: Daily+Weekly Rank IC > Daily-only = True; Daily+Weekly Rank IC > Weekly-only = False
+- 20d: Daily+Weekly Rank IC > Daily-only = True; Daily+Weekly Rank IC > Weekly-only = True
 
-### Decision rule
+Mean LSTM PredStd / TrueStd:
 
-LSTM adds value only if it improves over Ridge on the same benchmark questions under the same fairness constraints, not merely by showing a slightly lower MSE in a different protocol.
+- 0.3249
+
+### Interpretation
+
+- LSTM improves over Ridge in several point-forecast and ranking configurations.
+- However, LSTM does not beat the naive point-forecast benchmark on pooled MSE in any of the 9 configurations.
+- Therefore it is not appropriate to claim that LSTM establishes strong absolute return-level predictability.
+- The strongest evidence is in relative / cross-sectional ranking information rather than absolute return magnitude prediction.
+- Different horizons favor different frequency representations:
+  - 5d → Daily+Weekly best Rank IC
+  - 10d → Weekly-only best Rank IC
+  - 20d → Daily+Weekly best Rank IC
+- This supports the project's multi-scale motivation without claiming final proof of universal superiority for one frequency setting.
+- These results are a single-seed descriptive benchmark only.
+- Formal multi-seed robustness with 5 seeds remains pending.
+
+### Remaining robustness work
+
+- LSTM 5-seed robustness has not yet been run
+- LSTM architecture and protocol are frozen for this development benchmark
+- The formal statement is:
+  - "LSTM baseline: COMPLETE (single-seed development benchmark)."
+  - "Architecture and training protocol frozen."
+  - "Formal multi-seed robustness pending."
+
+Relevant outputs:
+
+- `dataset/audit/panel_lstm_test_predictions.csv`
+- `dataset/audit/panel_lstm_summary_metrics.csv`
+- `dataset/audit/panel_lstm_training_history.csv`
+- `dataset/audit/panel_lstm_rank_ic_by_date.csv`
+- `dataset/audit/panel_lstm_vs_ridge_summary.csv`
+- `dataset/audit/panel_lstm_final_summary.txt`
+
+### Emerging Panel Evidence
+
+1. Linear and nonlinear models both struggle to beat naive zero/mean predictions in pooled MSE, highlighting the difficulty of absolute stock-return level forecasting.
+2. Cross-sectional ranking contains more promising signal than absolute return magnitude prediction.
+3. LSTM improves over Ridge in 6 / 9 Rank-IC configurations while remaining numerically stable.
+4. Optimal temporal representation is horizon-dependent:
+   - 5d: Daily+Weekly
+   - 10d: Weekly
+   - 20d: Daily+Weekly
+   for LSTM Rank IC.
+5. This is consistent with, but does not yet prove, the adaptive multi-scale hypothesis: a fixed temporal scale or frequency may not be optimal across all forecasting horizons and market states.
+6. The next experiment must test whether attention-based temporal modeling with a Vanilla Transformer changes or strengthens this pattern.
+
+Do not claim profitable trading performance, causal effects, or universal superiority of Daily+Weekly or LSTM over naive forecasting.
 
 ---
 
 ## Current Assessment
 
-Advisor-requested experimental checklist is completed and reproducible.
+The current project status is now materially different from the earlier pre-freeze narrative.
 
-- Single-backbone PathFormer track is closed as a negative result due to structural scale instability.
-- Late-fusion track is stable enough for reporting and comparison.
-- Ranking signal remains weak overall (time-series Rank Corr is close to zero in many FSLR settings), but protocol compliance and robustness reporting are complete. Panel-level ranking quality will be reported separately using cross-sectional Rank IC once Experiment 2 is run.
-- `concat` is the safer default branch for interpretation; `gated` is retained as ablation with occasional low-variance degeneration.
+- FSLR full-frequency naive-fusion PathFormer remains a negative diagnostic result and should remain documented as such.
+- The active mainline is the frozen 17-stock Daily + Weekly panel on the shared sample index.
+- Shared panel infrastructure is stable: loader, split logic, train-only normalization, and cross-sectional Rank IC are all in place and used by Ridge and LSTM.
+- Ridge ML baseline is complete and frozen with SVD.
+- LSTM DL baseline is complete as a single-seed development benchmark and its architecture/training protocol are frozen.
+- LSTM does not establish absolute return-level predictability because it fails to beat the naive MSE benchmark in all 9 configurations.
+- LSTM nevertheless improves over Ridge in many configurations, particularly in cross-sectional Rank IC.
+- Frequency preference is horizon-dependent, which strengthens the multi-scale research motivation rather than weakening it.
+- The next benchmark is the Vanilla Transformer on the same frozen panel protocol.
+- The old statement that "panel-level ranking quality will be reported separately once Experiment 2 is run" is no longer correct; panel Rank IC is already being computed and reported for the Ridge and LSTM baselines.
+
+`concat` remains the safer default branch for interpretation; `gated` remains a secondary ablation when needed.
 
 ---
 
@@ -342,7 +440,7 @@ The main decision is to keep the model family stable and compare meaningful freq
 
 #### Experiment 3 — Ablation Study (on the most stable frequency combination)
 
-Daily + Weekly is the primary candidate and will be used for the core ablation **if confirmed as the most stable setting in Experiment 2** (Experiment 2 has not been run yet as of this writing — see Phase 3 status below). Do not treat Daily + Weekly as a pre-decided answer; the ablation configuration is selected only after Experiment 2's panel main comparison confirms it.
+Daily + Weekly is the primary candidate for the core ablation, but it is not automatically frozen as the final configuration. The final ablation setting will be chosen only after the current panel comparison has matured across Ridge, LSTM, and the upcoming Transformer baselines.
 
 Compare:
 
@@ -406,13 +504,24 @@ This is a more credible and publication-oriented experimental design than simply
 
 ### Panel Pipeline Status
 
-- `scripts/python/panel_universe.py` — finalized green-energy universe and ticker filtering (24 tickers, verified via `panel_build_manifest.csv`, all status `ok`).
+- `scripts/python/panel_universe.py` — finalized the green-energy panel universe and ticker filtering.
 - `scripts/python/panel_download_daily_weekly.py` — daily/weekly OHLCV download pipeline.
-- `scripts/python/panel_build_multiscale_dataset.py` — builds per-ticker panel dataset at Daily and Weekly scales only (verified: `dataset/multiscale_dataset/panel/<TICKER>/` contains only `X_daily.npy`, `X_weekly.npy`, `y_5d/10d/20d.npy`, `meta.csv` — no hourly/half-day files exist for any panel ticker).
-- `scripts/python/panel_adaptive_scale_experiment.py` — currently an exploratory prototype implementing only the PathFormer-family variants (`daily_only`, `weekly_only`, `fixed_multi`, `learnable_weight`, `adaptive_router`); it should be treated as a provisional experiment, not the final panel main benchmark.
-- **Gap confirmed by repo search:** there is no Ridge / XGBoost / LSTM / MLP / Vanilla-Transformer panel script yet anywhere in `scripts/python/`. All non-PathFormer baselines needed for Experiment 2's "1 ML + 1 DL + 2 Transformer" checklist still need to be written from scratch for the panel; they exist today only in the FSLR-only Task 8 scripts (`task8_baseline_linear_multihorizon.py`, `task8_baseline_vanilla_transformer.py`, `task8_baseline_swim.py`), which are not yet ported to the pooled-panel loader.
+- `scripts/python/panel_build_multiscale_dataset.py` — builds the per-ticker panel dataset at Daily and Weekly scales only.
+- `scripts/python/panel_common.py` — active shared loader / split / train-only normalization / metrics implementation for the frozen panel.
+- `scripts/python/panel_baseline_ridge.py` — completed and frozen Ridge baseline for the panel.
+- `scripts/python/panel_ridge_validation.py` — completed Ridge validation and naive comparison workflow.
+- `scripts/python/panel_ridge_solver_final_check.py` — completed final SVD solver confirmation.
+- `scripts/python/panel_baseline_lstm.py` — completed single-seed LSTM development benchmark for the panel.
+- `scripts/python/panel_adaptive_scale_experiment.py` — exploratory PathFormer-family prototype; not yet the formal panel main benchmark.
 
-The current priority is to change the panel experiment from a full-frequency replication to a stable frequency-specific baseline plus a clean, advisor-aligned ablation ladder.
+Current implemented formal/development baselines:
+
+- Ridge: DONE / FROZEN
+- LSTM: SINGLE-SEED COMPLETE / ARCHITECTURE FROZEN
+- Vanilla Transformer: NOT YET IMPLEMENTED / NEXT ACTIVE TASK
+- Late-Fusion PathFormer / adaptive multi-scale PathFormer: prototype exists, but formal benchmark version remains pending
+
+The current priority is to continue from the stable Ridge + single-seed LSTM baseline toward the next benchmark model, the Vanilla Transformer, while keeping the earlier FSLR diagnostic evidence as historical context.
 
 ### FSLR Full-Frequency Case Study (A1–A7) as Historical Evidence
 
@@ -473,102 +582,81 @@ Legend:
 
 ### Phase 2 — Establish stable baseline models for the panel
 
-- [Done] Decide the baseline family structure (design only, no code yet).
-  - Machine learning: Ridge / XGBoost
-  - Deep learning: LSTM / MLP
+- [Done] Shared baseline family structure chosen.
+  - Machine learning: Ridge
+  - Deep learning: LSTM
   - Transformer: Vanilla Transformer
   - Improved Transformer: Late-Fusion PathFormer / adaptive multi-scale PathFormer
-- [Pending] **Write the panel-ready ML baseline script (Ridge and/or XGBoost).** No panel version exists yet; only `task8_baseline_linear_multihorizon.py` exists and it is FSLR-only.
-- [Pending] **Write the panel-ready DL baseline script (LSTM and/or MLP).** No such script exists anywhere in the repo yet (FSLR-only baselines are Linear / Vanilla Transformer / SWiM / PathFormer, no plain LSTM/MLP).
-- [Pending] **Port the Vanilla Transformer baseline to the pooled panel loader.** Only the FSLR-only `task8_baseline_vanilla_transformer.py` exists today.
-- [Pending] Decide which "improved Transformer" to report: Late-Fusion PathFormer (frozen FSLR variant, needs panel port) vs the newer adaptive multi-scale PathFormer in `panel_adaptive_scale_experiment.py`.
-- [Pending] Implement or standardize the benchmark runner so that all four baseline models share identical targets, splits, and metrics.
-  - Inputs: panel Daily only / Weekly only / Daily + Weekly (see data-availability constraint under Experiment 2).
-  - Outputs: MSE, MAE, Corr, cross-sectional Rank IC, Direction Accuracy, Pred Std / True Std.
-- [Pending] Decide the exact benchmark set for the main paper table.
-  - Minimum recommended set: Ridge, LSTM, Vanilla Transformer, Late-Fusion PathFormer.
-  - Optional stronger model: XGBoost or adaptive router variant if it survives stability checks.
+- [Done] Ridge panel-ready ML baseline written and run.
+- [Done] Ridge numerical validation completed; SVD frozen.
+- [Done] LSTM panel-ready DL baseline written.
+- [Done] LSTM single-seed 9-configuration benchmark completed.
+- [Done] LSTM architecture and training protocol frozen for the development benchmark.
+- [Pending] Port/write the Vanilla Transformer panel baseline using the same frozen panel protocol.
+- [Pending] Build the formal Late-Fusion PathFormer panel baseline.
+- [Pending] Complete the single-seed four-family comparison: Ridge → LSTM → Vanilla Transformer → Improved Transformer.
+- [Pending] Multi-seed robustness after architecture comparison and selection.
 
-### Phase 2a — Foundation-First Build Plan (Do This Before Any Model)
+The primary next action in Phase 2 is: implement the Vanilla Transformer using the exact same frozen panel_common loader, split, normalization, targets, and metrics.
 
-**Principle:** build and verify one shared panel loader + chronological split + train-only normalization + metric evaluator first, and prove it end-to-end with Ridge only. If this layer is correct, LSTM / Vanilla Transformer / Late-Fusion PathFormer are just swapped-in models on top of the same verified pipeline. If this layer is wrong, every downstream deep-learning experiment is wasted effort, so no other model should be started before this passes verification.
+### Phase 2a — Foundation-First Build Plan
 
-**Step 0 (confirmed as the actual first step, before Ridge is even written):** build and audit the unified 24-stock Daily + Weekly panel benchmark dataset itself — common chronological split dates, train-only per-ticker/per-frequency normalization, and a shared sample index for all subsequent models — and output one audit CSV that proves the foundation is correct before any model touches it.
+**Principle:** the frozen panel sample index, split logic, and train-only normalization are now established and used by the actual baselines. This is the foundation layer that was verified before the later deep-learning steps.
 
-- `scripts/python/panel_common.py` implements the loader/split/normalizer (see below); a separate one-off script, e.g. `scripts/python/panel_audit_benchmark_dataset.py`, runs it once and writes `dataset/audit/panel_benchmark_dataset_audit.csv` plus a `_summary.txt`.
-- Audit CSV must contain, per ticker x frequency (Daily, Weekly) x horizon (5d/10d/20d):
-  - `n_train`, `n_val`, `n_test` sample counts.
-  - `train_start_date`, `train_end_date`, `val_start_date`, `val_end_date`, `test_start_date`, `test_end_date` (must show the same panel-wide split-date thresholds for every ticker — the split is by shared date, not by per-ticker row fraction).
-  - `train_feature_mean`, `train_feature_std` per feature (open/high/low/close/volume) — proves the normalizer is fit only on train rows.
-  - A leakage check flag: `max_train_anchor_date <= split_train_cut` and `min_test_anchor_date > split_val_cut` for every ticker (must be `True` for all rows, otherwise the audit fails).
-  - `shared_sample_index` — a stable integer id per (ticker, anchor_date) row so every downstream model (Ridge, LSTM, Transformer, PathFormer) references the exact same sample when logging predictions, letting per-sample results be joined/compared across models later.
-- This audit CSV must be visually reviewed (row counts look reasonable, no ticker has zero test rows, split dates line up panel-wide) **before** `panel_baseline_ridge.py` is written, since a bug here invalidates every model built on top of it.
+Status update:
 
-**New shared module: `scripts/python/panel_common.py`** (does not exist yet — to be created)
+- [Done] Panel audit and coverage analysis completed.
+- [Done] Universe-duration trade-off analysis completed.
+- [Done] 17-stock universe freeze completed.
+- [Done] Sample-index verification completed and passed.
+- [Done] `scripts/python/panel_common.py` is in place and actively used.
+- [Done] Ridge script completed and run.
+- [Done] Ridge validation completed and run.
+- [Done] Ridge solver final check completed and run.
+- [Done] Formal solver is SVD.
+- [Done] Ridge freeze completed.
+- [Done] LSTM script completed and run.
+- [Done] LSTM single-seed benchmark completed.
+- [Pending] Vanilla Transformer single-seed development benchmark.
 
-- `load_panel_frequency(frequency, horizon_key)` — loads `X_daily.npy`/`X_weekly.npy`/`y_<horizon>.npy`/`meta.csv` per ticker from `dataset/multiscale_dataset/panel/<TICKER>/` and concatenates across all 24 tickers in `panel_universe.GREEN_ENERGY_UNIVERSE`, returning arrays plus a parallel `ticker` and `anchor_date` array (same pattern as `panel_adaptive_scale_experiment.load_pooled_panel`, but factored out so every model script imports the same function instead of re-implementing it).
-- `chronological_split(anchor_date, train_frac=0.70, val_frac=0.15)` — reuses the existing `global_time_split` date-threshold logic (one shared threshold across the whole panel, not per-ticker), returns boolean train/val/test masks. Must be the single source of truth so Ridge, LSTM, Transformer, and PathFormer are evaluated on byte-identical splits.
-- `fit_train_only_normalizer(X_train)` / `apply_normalizer(X, stats)` — per-ticker, per-frequency feature normalization (mean/std) fit strictly on the train mask, then applied unchanged to val/test. Must be fit per ticker (not pooled across tickers) to respect the volatility-heterogeneity concern already documented under "Panel Normalization Protocol".
-- `evaluate_predictions(y_true, y_pred, ticker, anchor_date)` — single shared metric function returning: MSE, MAE, Corr, Direction Accuracy, Pred Std / True Std (all pooled and ticker-averaged), plus cross-sectional Rank IC (Spearman rank correlation computed within each `anchor_date` group across tickers, then averaged across dates — not a single pooled time-series rank correlation).
-- `save_result_row(...)` — one consistent CSV row/schema (frequency combo, horizon, model name, seed, all metrics above) so every model's output appends to the same comparison table format.
+Final status line for this phase:
 
-**Verification gate before touching any deep-learning model:**
+- [Done] Ridge verification gate passed; deep-learning expansion authorized.
+- [Done] LSTM single-seed development benchmark passed its stability gate.
+- [Pending] Vanilla Transformer single-seed development benchmark.
 
-1. Run `panel_common` unit-checks: split boundaries are identical across repeated calls, no ticker's train rows are dated after any test row anywhere in the panel, and per-ticker normalization stats are computed only from the train mask (assert no val/test dates leak into the mean/std computation).
-2. Implement `scripts/python/panel_baseline_ridge.py` using only `panel_common` functions: Ridge regression (flattened window features) for Daily only / Weekly only / Daily + Weekly, all three horizons (5d/10d/20d).
-3. Sanity-check Ridge output: MSE/MAE in a plausible range for daily log-returns (roughly similar order of magnitude to the FSLR Linear baseline numbers already on record), Pred Std not collapsed to ~0 and not exploding, Direction Accuracy near 0.5 (not a red flag either way for a linear baseline).
-4. Only after Ridge passes this sanity check does Phase 2 proceed to LSTM, Vanilla Transformer, and the Late-Fusion PathFormer panel port — all reusing `panel_common` unchanged.
+### Phase 3 — Panel main comparison (Experiment 2) — IN PROGRESS
 
-- [Done — script written, not yet run] **(Step 0)** Created `scripts/python/panel_audit_benchmark_dataset.py`. It loads all 24 tickers' existing `X_daily.npy`/`X_weekly.npy`/`y_5d,10d,20d.npy`/`meta.csv`, reports the common date-coverage window across all tickers (not assumed), derives ONE shared panel-wide chronological split (train/val/test cut dates from pooled anchor dates, applied identically to every ticker), builds a unified `(ticker, anchor_date, split, y_5d, y_10d, y_20d)` sample index, and locks train-only per-ticker/per-frequency normalization stats (mean/std). Outputs: `dataset/audit/panel_benchmark_data_audit.csv`, `panel_split_summary.csv`, `panel_norm_stats.csv`, `panel_sample_index.csv`, `panel_benchmark_data_audit_summary.txt`.
-- [Done — ran, result flagged a problem] Ran Step 0's audit: 24/24 tickers loaded, no NaN/Inf, no leakage failures, but **common coverage across all 24 tickers is only ~2022-04-18 to ~2026-06-03 (~4 years)** — likely too short for the adaptive multi-scale / regime-interpretation research goal, which motivates the trade-off analysis below before finalizing the panel size.
-- [Done — script written, not yet run] **(Step 0b, universe-vs-duration trade-off)** Created `scripts/python/panel_universe_duration_tradeoff.py` (reuses `panel_audit_benchmark_dataset.load_ticker`, no duplicated loading logic). It ranks all 24 tickers by first usable anchor_date, iteratively removes the latest-starting ticker to trace the full 24→1 common-coverage curve, computes a common-date-only (set-intersection, not union) 70/15/15 split for candidate universe sizes (24/22/20/18/17/16), flags the largest single-step coverage jump, and runs per-candidate sanity checks (no empty splits, no NaN/Inf, Daily+Weekly+5d/10d/20d all present on common dates). Does **not** choose a final universe — evidence only. Outputs: `dataset/audit/panel_ticker_date_coverage.csv`, `panel_universe_duration_tradeoff.csv`, `panel_candidate_universe_summary.csv`, `panel_universe_duration_tradeoff_summary.txt`.
-- [Done — ran, universe frozen] Reviewed the trade-off and froze the panel: **17-stock panel, common period 2016-01-25 to 2026-06-05** (see "FROZEN PANEL DECISION" at the top of this file). Full 24-stock universe kept as a future robustness/unbalanced-panel extension, not deleted.
-- [Done — ran, PASSED] Pre-freeze verification (`scripts/python/panel_verify_17stock_sample_index.py`): confirmed daily_only/weekly_only/daily_weekly all resolve to the identical 31,008-sample train `(ticker, anchor_date)` index for the frozen 17-stock panel.
-- [Done — script written, not yet run] Created `scripts/python/panel_common.py` on the **frozen 17-stock panel**: `load_frozen_panel()` (reuses `panel_universe_duration_tradeoff`'s common-date computation, no duplicated logic), `fit_train_only_normalizer()` / `apply_normalizer()` (per-ticker, per-frequency, per-feature, train-split-only), `flatten_features()`, and `evaluate_predictions()` (MSE, MAE, Pearson Corr, Direction Accuracy, Pred Std / True Std / their ratio, cross-sectional Rank IC computed per anchor_date across tickers then averaged, all reported both pooled and ticker-averaged).
-- [Done — script written, not yet run] Created `scripts/python/panel_baseline_ridge.py` on top of `panel_common`: runs Ridge x {daily_only, weekly_only, daily_weekly} x {5d, 10d, 20d} = 9 runs, with a small alpha grid `[0.1, 1, 10, 100]` selected via val-split pooled MSE, final metrics reported on test. Outputs `dataset/audit/panel_ridge_summary_metrics.csv` (9 rows, all pooled + ticker-averaged metrics) and `dataset/audit/panel_ridge_test_predictions.csv` (sample-level test predictions: ticker, anchor_date, horizon, y_true, y_pred, frequency_setting, model).
-- [Done — ran] First Ridge run completed; raised a `LinAlgWarning: ill-conditioned matrix` on the Daily+Weekly setting, which triggered the Ridge validation pass below before proceeding to LSTM.
-- [Done — script written, not yet run] Created `scripts/python/panel_ridge_validation.py` (Tasks A–F, does not touch dataset/universe/split/normalization, does not implement LSTM/Transformer/PathFormer):
-  - **Task A**: naive `zero` and `train_mean` baselines (train-split-only mean) for 5d/10d/20d, evaluated through the same `panel_common.evaluate_predictions` pipeline. Undefined Corr/Rank IC (constant predictors) are left as explicit NaN, never replaced with 0 — `panel_common.py` was updated with a `safe_pearson_corr` guard to guarantee this. Output: `panel_naive_baseline_summary.csv`.
-  - **Task B**: Ridge solver-stability check, `auto` (the original script's implicit default) vs `lsqr`, same samples/features/normalization/alpha grid/horizons/frequency settings; captures the `ill-conditioned` warning per fit, and compares predictions between solvers (Pearson corr, mean/max abs diff) to decide whether `lsqr` can be designated the formal solver (threshold: min cross-config prediction corr ≥ 0.999). Outputs: `panel_ridge_solver_stability.csv`, `panel_ridge_solver_predictions.csv`.
-  - **Task C**: proper cross-sectional Rank IC — new `panel_common.rank_ic_by_date()` computes Spearman rank corr across the 17 tickers within each test anchor_date (not a pooled correlation), then mean/median/std/positive-IC-ratio/n_valid_dates/descriptive ICIR are summarized on top. Outputs: `panel_ridge_rank_ic_by_date.csv`, `panel_ridge_rank_ic_summary.csv`.
-  - **Task D**: consolidated `panel_ridge_final_benchmark.csv` (Zero, Train Mean, Ridge Daily/Weekly/Daily+Weekly x 5d/10d/20d, using the Task-B-designated formal solver).
-  - **Task E**: sanity checks (exact 6,664 test samples per frequency setting, identical daily/weekly/daily+weekly test sample sets, ~17 tickers per test date, no NaN/Inf in predictions, no train/val/test date-boundary leakage) — script hard-stops (`sys.exit(1)`) before writing the final summary if any `[MAJOR]` violation is found.
-  - **Task F**: `panel_ridge_final_summary.txt` — lowest-MSE and highest-Rank-IC setting per horizon, Daily+Weekly vs single-frequency ranking comparison, Ridge-vs-naive MSE comparison, Pred Std/True Std dispersion read, solver-agreement verdict, and an explicit caveat that positive Rank IC alone does not establish predictive success (point-accuracy vs ranking-information vs calibration are kept separate).
-- [Pending — user to run] Execute `python scripts/python/panel_ridge_validation.py`, review the printed "RIDGE BASELINE VALIDATION COMPLETE" block and the 7 output files, and confirm no `[MAJOR]` sanity violation before treating Ridge as the frozen formal ML baseline and moving on to LSTM.
-- [Done — ran] Ridge validation (Tasks A-F) completed. Substantive findings so far: Weekly-only gives lowest pooled MSE for all 3 horizons; Daily+Weekly gives highest mean cross-sectional Rank IC for all 3 horizons; Ridge does not beat Zero/Train Mean on pooled MSE; Ridge predictions are under-dispersed. However, `auto` vs `lsqr` disagreed below the 0.999 threshold on several configs (e.g. daily_only/10d corr≈0.9428, daily_weekly/20d corr≈0.9712, each picking different alphas), so Ridge could not yet be frozen.
-- [Done — script written, not yet run] Created `scripts/python/panel_ridge_solver_final_check.py` — the FINAL Ridge numerical-stability check (does not touch universe/split/normalization/features/targets/metric implementation/alpha grid). Compares `auto`, `svd` (numerical reference for collinear/ill-conditioned matrices), and `lsqr_tight` (`tol=1e-8`, `max_iter=100000`) across all 9 frequency x horizon configs; records the **full validation-MSE-vs-alpha curve** per solver/config (not just the selected alpha) to distinguish a flat loss surface from genuine disagreement; computes pairwise prediction agreement (`auto vs svd`, `lsqr_tight vs svd`, `auto vs lsqr_tight`); and applies interpretation rules A-D (SVD+lsqr_tight agree & auto differs → SVD formal; auto+SVD agree & lsqr_tight differs → SVD formal; all agree or disagreement is explained by a flat val-MSE curve with no change in best-MSE/best-Rank-IC setting → alpha-selection sensitivity, freeze with SVD; SVD itself changes which frequency setting is best → Ridge remains unstable, do not freeze). Outputs: `panel_ridge_solver_final_check.csv`, `panel_ridge_alpha_validation_curve.csv`, `panel_ridge_solver_final_predictions.csv`, `panel_ridge_solver_final_summary.txt`.
-- [Pending — user to run] Execute `python scripts/python/panel_ridge_solver_final_check.py`, review "RIDGE FINAL SOLVER CHECK COMPLETE" (formal solver recommendation, whether best-MSE/best-Rank-IC setting changes across solvers, whether alpha selection is flat/sensitive vs genuinely unstable, whether Ridge can now be frozen) before deciding whether to proceed to LSTM.
-- [Pending] Run the verification gate above and confirm Ridge results are sane before writing any LSTM/Transformer/PathFormer panel script.
+This is the current main experimental block.
 
-### Phase 3 — Panel main comparison (Experiment 2)
+Completed model families:
 
-This is the main experimental block.
+- [Done] Ridge × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Done — single seed] LSTM × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
-- [Pending] Run the single-frequency panel comparison (data-supported today).
-  - Daily only
-  - Weekly only
-- [Pending] Run the dual-frequency panel comparison (data-supported today).
-  - Daily + Weekly
-- [Blocked on data] Hourly only, Half-Day only, Hourly + Daily, All frequencies.
-  - Requires a panel-wide Hourly/Half-Day OHLCV source; current `yfinance` 1h history (~730 days) is likely too short for a fair 70/15/15 split across 24 tickers. Needs an explicit decision: skip entirely, use a shorter recent-window sub-panel, or source a paid intraday vendor.
+Pending model families:
 
-**Immediate action before running Experiment 2:** the Ridge / LSTM / Vanilla Transformer / Late-Fusion PathFormer scripts for the panel do not exist yet (see Panel Pipeline Status gap above) — Phase 2 must produce runnable scripts before Phase 3 can start.
-- [Pending] Compare these models with consistent evaluation metrics.
-  - MSE
-  - MAE
-  - Corr
-  - Cross-sectional Rank IC
-  - Direction Accuracy
-  - Pred Std / True Std
-  - Stability trend across the test window
-- [Pending] Select the stable frequency combination for the main insight.
-  - This selection is the output of Experiment 2, not a pre-decided input; Daily + Weekly is only the leading candidate pending confirmation.
+- [Pending] Vanilla Transformer × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Pending] Late-Fusion PathFormer / adaptive multi-scale Transformer × the relevant panel configurations
+
+Blocked / deferred:
+
+- [Blocked on data] Hourly only, Half-Day only, Hourly + Daily, All frequencies
+  - Requires a panel-wide intraday OHLCV source; the existing panel dataset is only Daily + Weekly.
+
+Current preliminary evidence from the LSTM development benchmark:
+
+- 5d best Rank IC = Daily+Weekly
+- 10d best Rank IC = Weekly-only
+- 20d best Rank IC = Daily+Weekly
+
+This suggests that frequency preference is horizon-dependent. The final stable configuration must not be selected until the Vanilla Transformer and improved-Transformer panel results are also available.
 
 ### Phase 4 — Core PathFormer ablation on the most stable frequency pair
 
-The ablation must be restricted to the strongest stable frequency pair, not run over all combinations.
+The ablation remains pending.
 
-- [In Progress] Build the Daily + Weekly main ablation ladder.
+- [Pending] Build the Daily + Weekly main ablation ladder.
   - Single-scale
   - Fixed multiscale
   - Static learned scale weight
@@ -576,7 +664,9 @@ The ablation must be restricted to the strongest stable frequency pair, not run 
   - Optional dual-attention checks: full dual attention / intra-only / inter-only
 - [Pending] Run the above on the same deterministic panel split and consistent metrics.
 - [Pending] Determine whether the adaptive router provides improvement only after the frequency-specific representation is stable.
-- [Pending] Decide whether the router should be considered a “core mechanism” or only an “optional extension.”
+- [Pending] Decide whether the router should be considered a core mechanism or only an optional extension.
+
+Current motivation is unchanged but more careful: Ridge favored Daily+Weekly for Rank IC at all horizons, while the LSTM development benchmark favored Daily+Weekly at 5d and 20d but Weekly-only at 10d. This indicates that multi-frequency modeling is promising but not universally dominant; the final ablation configuration will be chosen only after the Transformer and PathFormer comparisons are completed.
 
 ### Phase 5 — Robustness and reproducibility (Experiment 4)
 
@@ -585,6 +675,13 @@ The ablation must be restricted to the strongest stable frequency pair, not run 
 - [Pending] Report mean ± std for all main metrics.
 - [Pending] Verify the selected model is not only good on one seed.
 - [Pending] Confirm that stability is preserved in correlation, rank IC, and scale metrics, not only MSE.
+
+Important clarification:
+
+- Current Ridge results are deterministic / frozen.
+- Current LSTM results are seed=42 development results.
+- LSTM 5-seed robustness has not yet been run.
+- Do not spend compute on multi-seed robustness until the next transformer and PathFormer baselines are stabilized.
 
 ### Phase 6 — Router interpretability analysis
 
@@ -627,11 +724,18 @@ The ablation must be restricted to the strongest stable frequency pair, not run 
   - router activation analysis
   - financial regime interpretation
 
-### Phase 9 — Decision gate before deep model expansion
+### Phase 9 — Decision gate before adaptive-router expansion
 
-- [Pending] Decision rule: only proceed to more complex router variants if the stable panel baseline surpasses or at least matches the best conventional baseline on the selected frequency pair.
-- [Pending] If the adaptive router underperforms or destabilizes, keep it as an optional extension and not the main contribution.
-- [Pending] If Daily + Weekly + late-fusion PathFormer is stable and competitive, proceed to the formal paper framing around “frequency-specific modeling + adaptive selection as a robust multi-scale design.”
+Current status:
+
+- Ridge stable: PASS
+- LSTM stable: PASS as a single-seed development benchmark
+- Vanilla Transformer: pending
+- Adaptive / router expansion: wait until the conventional baselines are complete
+
+The gate is no longer: "Should we start deep models?"
+
+It is now: "After Ridge, LSTM, and the Vanilla Transformer, is there sufficient evidence to justify adaptive multi-scale / router complexity?"
 
 ---
 
@@ -645,16 +749,30 @@ The ablation must be restricted to the strongest stable frequency pair, not run 
 
 ## Immediate Execution Checklist (Most Urgent)
 
-1. [Pending] Write the panel-ready Ridge / LSTM / Vanilla Transformer / Late-Fusion PathFormer scripts (none exist yet for the pooled panel loader — see Panel Pipeline Status gap).
-2. [Pending] Standardize a shared benchmark runner so all four baselines use identical splits/targets/metrics.
-3. [Pending] Run panel comparison over Daily only, Weekly only, Daily + Weekly (the only combos current panel data supports). Explicitly note Hourly only / Half-Day only / Hourly + Daily / All frequencies as blocked-on-data until a panel-wide intraday source is resolved.
-4. [Pending] Select the best stable daily/weekly panel baseline.
-5. [Pending] Run Daily + Weekly ablation: single / fixed / static / adaptive (+ optional full-dual / intra-only / inter-only attention checks).
-6. [Pending] Run 5-seed robustness for the winning model.
-7. [Pending] Save router-weight CSVs and produce interpretability analysis.
-8. [Pending] Draft the final FSLR diagnostic section and the panel main-results section.
+1. [Done] Freeze the 17-stock balanced Daily + Weekly panel and shared sample index.
+2. [Done] Freeze the Ridge ML baseline with SVD.
+3. [Done] Complete the LSTM single-seed development benchmark.
+4. [Next] Implement the Vanilla Transformer panel baseline using the exact same `panel_common` loader, split, normalization, targets, and metrics.
+5. [Pending] Run Vanilla Transformer on Daily / Weekly / Daily+Weekly × 5d / 10d / 20d, starting with seed=42.
+6. [Pending] Build/run the formal Late-Fusion PathFormer / adaptive multi-scale panel benchmark.
+7. [Pending] Complete the four-family single-seed comparison: Ridge → LSTM → Vanilla Transformer → Improved Transformer.
+8. [Pending] Select the stable frequency/model configuration for ablation.
+9. [Pending] Run single-scale / fixed multiscale / static learned-weight / adaptive-router ablation.
+10. [Pending] Run 5-seed robustness on the selected model family.
+11. [Pending] Produce router / regime interpretation analysis.
+12. [Pending] Finalize the panel-results writeup and the FSLR diagnostic section.
 
-This ordering follows the advisor's preferred logic: first stabilize the panel baseline, then test the mechanism, and only then write the final scientific narrative.
+Current experiment chain:
+
+Naive → Ridge → LSTM → Vanilla Transformer → Late-Fusion / Adaptive Multi-Scale PathFormer
+
+with status:
+
+- Naive: DONE
+- Ridge: DONE / FROZEN
+- LSTM: SINGLE-SEED DONE
+- Vanilla Transformer: NEXT
+- Improved Transformer: PENDING
 
 ---
 
