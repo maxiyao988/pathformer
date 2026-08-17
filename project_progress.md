@@ -332,9 +332,215 @@ Relevant outputs:
    - 20d: Daily+Weekly
    for LSTM Rank IC.
 5. This is consistent with, but does not yet prove, the adaptive multi-scale hypothesis: a fixed temporal scale or frequency may not be optimal across all forecasting horizons and market states.
-6. The next experiment must test whether attention-based temporal modeling with a Vanilla Transformer changes or strengthens this pattern.
+6. The Vanilla Transformer control is the next analytical step for testing whether generic self-attention changes or strengthens this pattern under the exact same frozen panel protocol.
 
 Do not claim profitable trading performance, causal effects, or universal superiority of Daily+Weekly or LSTM over naive forecasting.
+
+---
+
+## Vanilla Transformer Panel Development Baseline — DONE / FROZEN
+
+The Vanilla Transformer is an additional methodological control in the advisor-aligned model ladder. It is not one of the advisor's explicitly required "improved Transformer" algorithms. Its role is to isolate the effect of generic self-attention relative to the recurrent LSTM baseline, and to separate that effect from the incremental value of structured multi-scale / adaptive mechanisms in the later PathFormer branch.
+
+### Completed implementation
+
+The panel-ready Vanilla Transformer baseline exists and has completed its formal nominal-seed-42 development benchmark:
+
+- Script: `scripts/python/panel_baseline_vanilla_transformer.py`
+
+Architecture:
+
+Single-frequency Daily / Weekly:
+
+```text
+input [B,T,F]
+-> Linear(F,64)
+-> fixed sinusoidal positional encoding
+-> 2-layer TransformerEncoder
+-> final-timestep representation encoded[:, -1, :]
+-> Linear(64,1)
+```
+
+Daily + Weekly:
+
+```text
+Daily TransformerBranch
+Weekly TransformerBranch
+
+-> independent frequency-specific representations
+-> concatenate [B,128]
+-> Linear(128,64)
+-> ReLU
+-> Linear(64,1)
+```
+
+Architecture constants:
+
+- d_model = 64
+- nhead = 4
+- num_encoder_layers = 2
+- dim_feedforward = 128
+- dropout = 0.1
+- activation = ReLU
+
+No causal mask.
+No router.
+No multi-scale patching.
+No ticker embedding.
+No SWiM mechanism.
+No PathFormer mechanism.
+No raw-sequence early fusion.
+
+Parameter counts:
+
+- daily_only = 67,393
+- weekly_only = 67,393
+- daily_weekly = 142,977
+
+Note: an earlier implementation contained unused scalar heads inside the dual-frequency branches. This was identified during code review and refactored before formal training. The final frozen architecture above does not contain those unused heads.
+
+### Frozen training protocol
+
+Vanilla is intentionally matched to the frozen LSTM panel development protocol.
+
+- seed = 42
+- batch size = 32
+- learning rate = 1e-4
+- optimizer = Adam
+- loss = HuberLoss(delta=1.0)
+- max epochs = 100
+- early stopping patience = 10
+- gradient clipping = 1.0
+- early stopping criterion: validation Huber loss
+- best checkpoint restored before test evaluation
+
+Frozen panel:
+
+- 17 stocks
+- train = 31,008
+- validation = 6,647
+- test = 6,664
+
+Same sample index, anchor dates, labels, split, train-only per-ticker/per-frequency/per-feature normalization, and evaluation metrics as the frozen Ridge/LSTM panel protocol.
+
+### Pre-training validation note
+
+Before formal training, the implementation passed the defined validation gate:
+
+- py_compile passed
+- import passed
+- frozen panel invariant checks passed
+- Daily forward/backward smoke passed
+- Weekly forward/backward smoke passed
+- Daily+Weekly forward/backward smoke passed
+- parameter-count audit passed
+- explicit safe CLI implemented
+- default script run performs smoke validation only
+- single experiment requires explicit `--train --frequency ... --horizon ...`
+- full benchmark requires explicit `--train --all`
+
+The Rank IC implementation was independently validated against a pure pandas rank-then-Pearson implementation on the Daily-5d test sample:
+
+- n_dates_total = 392
+- n_dates_valid = 392
+- max_abs_difference = 2.7755575615628914e-17
+- median_abs_difference = 0.0
+- mean_abs_difference = 7.080503983578804e-20
+- all_close_1e12 = True
+
+This specific Rank IC implementation was numerically validated on the relevant Daily-5d path. The SciPy / NumPy version warning did not materially alter the values in this validation path; this does not imply general environment compatibility beyond this check.
+
+### Formal Vanilla development benchmark results
+
+The full nominal-seed-42 MPS benchmark completed successfully.
+
+- Total runtime: 1h 9m 44s
+- Completed: 9 / 9 experiments
+
+Daily only:
+
+- 5d: test MSE = 0.010093; mean Rank IC = -0.004543; PredStd/TrueStd = 0.0835; best epoch = 10; best validation loss = 0.004145; runtime = 6m 46s; no_extreme_scale_pathology = False
+- 10d: test MSE = 0.019791; mean Rank IC = 0.024641; PredStd/TrueStd = 0.1670; best epoch = 4; best validation loss = 0.007967; runtime = 4m 43s; no_extreme_scale_pathology = False
+- 20d: test MSE = 0.038512; mean Rank IC = 0.038159; PredStd/TrueStd = 0.3349; best epoch = 4; best validation loss = 0.014788; runtime = 4m 44s; no_extreme_scale_pathology = True
+
+Weekly only:
+
+- 5d: test MSE = 0.010473; mean Rank IC = 0.095904; PredStd/TrueStd = 0.2315; best epoch = 10; best validation loss = 0.003870; runtime = 6m 28s; no_extreme_scale_pathology = True
+- 10d: test MSE = 0.021070; mean Rank IC = 0.010942; PredStd/TrueStd = 0.1670; best epoch = 1; best validation loss = 0.007755; runtime = 3m 34s; no_extreme_scale_pathology = False
+- 20d: test MSE = 0.040470; mean Rank IC = -0.041517; PredStd/TrueStd = 0.2259; best epoch = 1; best validation loss = 0.014030; runtime = 3m 43s; no_extreme_scale_pathology = True
+
+Daily + Weekly:
+
+- 5d: test MSE = 0.010066; mean Rank IC = 0.086375; PredStd/TrueStd = 0.2305; best epoch = 11; best validation loss = 0.003925; runtime = 13m 57s; no_extreme_scale_pathology = True
+- 10d: test MSE = 0.019343; mean Rank IC = 0.071210; PredStd/TrueStd = 0.2583; best epoch = 11; best validation loss = 0.008065; runtime = 14m 16s; no_extreme_scale_pathology = True
+- 20d: test MSE = 0.041350; mean Rank IC = -0.029437; PredStd/TrueStd = 0.2907; best epoch = 7; best validation loss = 0.015108; runtime = 11m 33s; no_extreme_scale_pathology = True
+
+### Scientific interpretation
+
+The key result is that no single temporal-frequency configuration is universally optimal.
+
+For point accuracy:
+
+- 5d: Daily+Weekly MSE = 0.010066; Daily = 0.010093; Weekly = 0.010473
+- 10d: Daily+Weekly MSE = 0.019343; Daily = 0.019791; Weekly = 0.021070
+- 20d: Daily = 0.038512; Weekly = 0.040470; Daily+Weekly = 0.041350
+
+For cross-sectional mean Rank IC:
+
+- 5d: Weekly = 0.095904; Daily+Weekly = 0.086375; Daily = -0.004543
+- 10d: Daily+Weekly = 0.071210; Daily = 0.024641; Weekly = 0.010942
+- 20d: Daily = 0.038159; Daily+Weekly = -0.029437; Weekly = -0.041517
+
+Interpretation:
+
+- 5d: Weekly provides the strongest cross-sectional ranking signal, while Daily+Weekly has slightly better point MSE than Daily and Weekly.
+- 10d: Daily+Weekly is best on both MSE and mean Rank IC; this is the strongest Vanilla evidence of complementary Daily/Weekly information.
+- 20d: Daily-only is best on both MSE and mean Rank IC; adding Weekly information hurts ranking and point accuracy.
+
+Core scientific takeaway: temporal-frequency usefulness is strongly horizon dependent. Fixed multi-frequency fusion is not uniformly superior. Adding more temporal-frequency information can help, provide little incremental benefit, or hurt through information dilution / negative transfer. This supports the motivation for adaptive temporal-scale selection but does not yet prove that the adaptive router itself works.
+
+The Vanilla Transformer remains numerically stable on the frozen panel, but its optimal temporal-frequency configuration is strongly horizon dependent: Weekly features provide the strongest 5-day cross-sectional ranking signal, Daily+Weekly fusion performs best at 10 days, while Daily-only features dominate at 20 days. The fact that fixed multi-frequency fusion is not uniformly superior motivates adaptive temporal-scale selection rather than indiscriminate frequency aggregation.
+
+### Dispersion / stability interpretation
+
+Vanilla did not exhibit the catastrophic instability previously seen in the original FSLR single-backbone PathFormer.
+
+No:
+
+- output-scale explosion
+- NaN
+- MSE in extreme hundreds/thousands
+- literal constant collapse
+
+However, some configurations remain materially under-dispersed. The most notable case is Daily 5d, with PredStd/TrueStd = 0.0835. Daily 10d and Weekly 10d both have 0.1670. Longer-horizon configurations generally show healthier dispersion in this run, but this should not be over-generalized from only 9 configurations.
+
+Metric interpretation should remain separate:
+
+- MSE / MAE: point forecast accuracy
+- Pearson Corr: linear association
+- mean Rank IC: cross-sectional ranking
+- Direction Accuracy: sign prediction
+- PredStd/TrueStd: prediction-dispersion calibration diagnostic
+
+Positive Rank IC does not by itself prove strong return predictability.
+
+### Reproducibility caveat
+
+Before the full 9-group benchmark, a single-config nominal seed-42 Daily-5d smoke-training run produced approximately:
+
+- MSE = 0.010023
+- mean Rank IC = 0.027975
+- best epoch = 11
+- PredStd/TrueStd = 0.097139
+
+The formal full-run nominal seed-42 Daily-5d result was:
+
+- MSE = 0.010093
+- mean Rank IC = -0.004543
+- best epoch = 10
+- PredStd/TrueStd = 0.0835
+
+Therefore, nominal seed 42 on Apple MPS does not guarantee bitwise run-to-run deterministic reproduction. This is not treated as a model failure. It is an MPS / stochastic reproducibility caveat to be handled in the later multi-seed robustness stage. The full 9-group benchmark results above are the official Vanilla development baseline, and the earlier single-config run is treated only as smoke/development evidence. This strengthens the need for at least 5 seeds and mean ± std before formal robustness claims are made.
 
 ---
 
@@ -344,18 +550,20 @@ The current project status is now materially different from the earlier pre-free
 
 - FSLR full-frequency naive-fusion PathFormer remains a negative diagnostic result and should remain documented as such.
 - The active mainline is the frozen 17-stock Daily + Weekly panel on the shared sample index.
-- Shared panel infrastructure is stable: loader, split logic, train-only normalization, and cross-sectional Rank IC are all in place and used by Ridge and LSTM.
+- Shared panel infrastructure is stable: loader, split logic, train-only normalization, and cross-sectional Rank IC are all in place and used by Ridge, LSTM, and Vanilla Transformer.
 - Ridge ML baseline is complete and frozen with SVD.
 - LSTM DL baseline is complete as a single-seed development benchmark and its architecture/training protocol are frozen.
-- LSTM does not establish absolute return-level predictability because it fails to beat the naive MSE benchmark in all 9 configurations.
-- LSTM nevertheless improves over Ridge in many configurations, particularly in cross-sectional Rank IC.
-- Frequency preference is horizon-dependent, which strengthens the multi-scale research motivation rather than weakening it.
-- The next benchmark is the Vanilla Transformer on the same frozen panel protocol, but it is a conventional attention control, not one of the advisor-requested two improved Transformer algorithms.
-- The old statement that "panel-level ranking quality will be reported separately once Experiment 2 is run" is no longer correct; panel Rank IC is already being computed and reported for the Ridge and LSTM baselines.
+- Vanilla Transformer is now complete as the generic self-attention control baseline under the same frozen panel protocol; its 9-configuration development benchmark is complete and frozen.
+- Vanilla is numerically stable for the frozen panel, but does not uniformly dominate LSTM or naive baselines across all frequencies and horizons.
+- Vanilla shows clear horizon-dependent frequency preference: Weekly is strongest at 5d ranking, Daily+Weekly is strongest at 10d, and Daily-only is strongest at 20d.
+- Fixed Daily+Weekly fusion is useful at some horizons but not uniformly superior, which strengthens the motivation for structured multi-scale and adaptive scale-selection mechanisms.
 - The advisor-aligned model ladder is: Ridge → nonlinear recurrence (LSTM) → generic self-attention control (Vanilla Transformer) → structured/windowed Transformer improvement (SWiM-style) → adaptive multi-scale Transformer (PathFormer).
 - Experiment 2 is a model-family comparison; Experiment 3 is a PathFormer mechanism ablation. These remain separate.
+- The old statement that "panel-level ranking quality will be reported separately once Experiment 2 is run" is no longer correct; panel Rank IC is already being computed and reported for the Ridge, LSTM, and Vanilla baselines.
 
-For the historical FSLR late-fusion experiments, `concat` remains the safer default branch for interpretation and `gated` remains a secondary ablation. This does not pre-select the fusion mechanism for the formal panel PathFormer benchmark, which has not yet been completed.
+For the historical FSLR late-fusion experiments, `concat` remains the safer default branch for interpretation and `gated` remains a secondary ablation. This does not pre-select the fusion mechanism for the formal panel PathFormer benchmark, which remains pending but is now downstream of the completed Vanilla control.
+
+Important caveat: overlapping future-return targets induce serial dependence within the panel sample. Descriptive ICIR and mean Rank IC should not be interpreted as formal statistical significance without the later multi-seed robustness and appropriate serial-dependence-aware inference step.
 
 ---
 
@@ -432,12 +640,12 @@ This is the panel main model-family comparison in the advisor's original sense: 
 |---|---|---|
 | Naive reference | Zero / Train Mean | DONE |
 | Machine Learning | Ridge | DONE / FROZEN |
-| Deep Learning | LSTM | SINGLE-SEED DONE |
-| Transformer control | Vanilla Transformer | NEXT |
-| Improved Transformer A | SWiM-style / windowed-attention Transformer | PENDING |
-| Improved Transformer B / proposed model | Adaptive Multi-Scale PathFormer | PENDING |
+| Deep Learning | LSTM | DONE / FROZEN development benchmark |
+| Transformer control | Vanilla Transformer | DONE / FROZEN development control |
+| Improved Transformer A | SWiM-style / windowed-attention Transformer | NEXT |
+| Improved Transformer B / proposed model | Adaptive Multi-Scale PathFormer | PENDING AFTER SWiM |
 
-The Vanilla Transformer is scientifically useful and should still be implemented, but it is an additional conventional-attention control. It is not counted as one of the advisor-requested two improved Transformer algorithms.
+The Vanilla Transformer remains an additional conventional-attention control. It is not counted as one of the advisor-requested two improved Transformer algorithms.
 
 This creates the intended comparison ladder:
 
@@ -471,7 +679,7 @@ The main decision is to keep the model family stable and compare meaningful freq
 
 This is a separate experiment from Experiment 2. Experiment 2 asks: which model family performs best under the stable panel framework? Experiment 3 asks: which PathFormer mechanism contributes to performance?
 
-Daily + Weekly remains the current leading multi-frequency candidate, but it is not yet frozen for the mechanism study. The final Experiment-3 setting will be chosen only after the Ridge/LSTM/Vanilla-Transformer/SWiM/PathFormer main comparison is complete.
+Daily + Weekly remains the advisor-suggested configuration for this mechanism study, and the final Experiment-3 setting should be chosen on that basis. The final mechanism-ablation setting is not yet frozen, but the advisor explicitly suggested Daily + Weekly as the current leading panel configuration for this experiment.
 
 Compare:
 
@@ -551,13 +759,13 @@ This is directly aligned with the advisor's original statement that PathFormer a
 
 1. **DONE — Preserve FSLR A1–A5 as a negative-result diagnostic case study** to explain why naive full-frequency fusion fails and why the panel baseline must be redesigned.
 2. **DONE — Refactor the panel main experiment** around frequency-specific encoders + late fusion + optional per-frequency router, rather than repeating the unstable all-frequency naive fusion architecture.
-3. **IN PROGRESS — Panel main model-family comparison** on the frequency combinations actually supported by current panel data: Daily only, Weekly only, Daily + Weekly. Treat Hourly only / Half-Day only / Hourly + Daily / All frequencies as blocked-on-data extensions until a panel-wide intraday source is resolved.
-   - Ridge: DONE
-   - LSTM single-seed: DONE
-   - Vanilla Transformer control: NEXT
-   - SWiM-style improved Transformer A: PENDING
-   - Adaptive Multi-Scale PathFormer improved Transformer B: PENDING
-4. **PENDING — Select the stable frequency configuration for the PathFormer mechanism ablation** after the Ridge/LSTM/Vanilla-Transformer/SWiM/PathFormer comparison is complete. Daily+Weekly remains the leading multi-frequency candidate, but it is not pre-frozen as the final ablation setting.
+3. **DONE — Panel main model-family comparison** on the frequency combinations actually supported by current panel data: Daily only, Weekly only, Daily + Weekly. Treat Hourly only / Half-Day only / Hourly + Daily / All frequencies as blocked-on-data extensions until a panel-wide intraday source is resolved.
+   - Ridge: DONE / FROZEN
+   - LSTM: DONE / FROZEN development benchmark
+   - Vanilla Transformer control: DONE / FROZEN development control
+   - SWiM-style improved Transformer A: NEXT
+   - Adaptive Multi-Scale PathFormer improved Transformer B: PENDING AFTER SWiM
+4. **PENDING — Select the stable frequency configuration for the PathFormer mechanism ablation** after the Ridge/LSTM/Vanilla-Transformer/SWiM/PathFormer comparison is complete. The advisor explicitly suggested Daily + Weekly for this experiment based on the current panel evidence.
 5. **PENDING — Run the selected-frequency PathFormer mechanism ablation** comparing single-scale vs fixed multiscale vs static learned scale weight vs adaptive router.
 6. **PENDING — Run 5-seed robustness reporting** with mean ± std across the main settings.
 7. **PENDING — Add router-weight interpretation analysis** only for the stable adaptive model.
@@ -579,13 +787,14 @@ This roadmap keeps the advisor-aligned motivation without implying that the fina
 
 Current implemented formal/development baselines:
 
+- Naive baseline: DONE
 - Ridge: DONE / FROZEN
-- LSTM: SINGLE-SEED COMPLETE / ARCHITECTURE FROZEN
-- Vanilla Transformer: NOT YET IMPLEMENTED / NEXT ACTIVE TASK
-- SWiM-style / windowed-attention Transformer: NOT YET IMPLEMENTED / PENDING AFTER VANILLA
+- LSTM: DONE / FROZEN development architecture/protocol
+- Vanilla Transformer: DONE / FROZEN development control
+- SWiM-style / windowed-attention Transformer: NEXT
 - Late-Fusion PathFormer / adaptive multi-scale PathFormer: prototype exists, but formal benchmark version remains pending
 
-The current priority is to continue from the stable Ridge + single-seed LSTM baseline toward the next benchmark model, the Vanilla Transformer, while keeping the earlier FSLR diagnostic evidence as historical context.
+The current priority is to continue from the completed Ridge + LSTM + Vanilla control ladder toward the next benchmark model, the SWiM-style improved Transformer, while keeping the earlier FSLR diagnostic evidence as historical context.
 
 ### FSLR Full-Frequency Case Study (A1–A7) as Historical Evidence
 
@@ -657,13 +866,14 @@ Legend:
 - [Done] LSTM panel-ready DL baseline written.
 - [Done] LSTM single-seed 9-configuration benchmark completed.
 - [Done] LSTM architecture and training protocol frozen for the development benchmark.
-- [Next] Implement the Vanilla Transformer control using the same frozen panel_common loader, split, normalization, targets, and metrics.
+- [Done] Vanilla Transformer panel development baseline implemented and run under the same frozen panel_common loader, split, normalization, targets, and metrics.
+- [Done] Vanilla Transformer 9-configuration nominal-seed-42 benchmark completed and frozen as the generic self-attention control.
 - [Pending] Port/build the SWiM-style improved Transformer panel baseline.
 - [Pending] Build the formal Adaptive Multi-Scale PathFormer panel baseline.
 - [Pending] Complete the five-model / family single-seed comparison: Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer.
 - [Pending] Multi-seed robustness after architecture comparison and selection.
 
-The primary next action in Phase 2 is: implement the Vanilla Transformer control using the exact same frozen panel_common loader, split, normalization, targets, and metrics.
+The primary next action in Phase 2 is now to implement the SWiM-style improved Transformer on the same frozen panel backbone, while keeping the Vanilla Transformer as the completed control baseline.
 
 ### Phase 2a — Foundation-First Build Plan
 
@@ -683,13 +893,14 @@ Status update:
 - [Done] Ridge freeze completed.
 - [Done] LSTM script completed and run.
 - [Done] LSTM single-seed benchmark completed.
-- [Pending] Vanilla Transformer single-seed development benchmark.
+- [Done] Vanilla Transformer implementation audit and validation completed.
+- [Done] Vanilla Transformer 9-configuration development benchmark completed.
 
 Final status line for this phase:
 
 - [Done] Ridge verification gate passed; deep-learning expansion authorized.
 - [Done] LSTM single-seed development benchmark passed its stability gate.
-- [Pending] Vanilla Transformer single-seed development benchmark.
+- [Done] Vanilla Transformer development benchmark passed its control-benchmark gate.
 
 ### Phase 3 — Panel main comparison (Experiment 2) — IN PROGRESS
 
@@ -699,27 +910,27 @@ Completed model families:
 
 - [Done] Ridge × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 - [Done — single seed] LSTM × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Done — single seed / full 9-config benchmark] Vanilla Transformer control × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
 Pending model families in order:
 
-1. [Next] Vanilla Transformer control × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
-2. [Pending] SWiM-style improved Transformer A × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
-3. [Pending] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+1. [Next] SWiM-style improved Transformer A × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+2. [Pending] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
 Blocked / deferred:
 
 - [Blocked on data] Hourly only, Half-Day only, Hourly + Daily, All frequencies
   - Requires a panel-wide intraday OHLCV source; the existing panel dataset is only Daily + Weekly.
 
-Current preliminary evidence from the LSTM development benchmark:
+Current evidence from the completed control benchmarks:
 
-- 5d best Rank IC = Daily+Weekly
-- 10d best Rank IC = Weekly-only
-- 20d best Rank IC = Daily+Weekly
+- 5d best Rank IC: Weekly-only for Vanilla; Daily+Weekly for LSTM
+- 10d best Rank IC: Daily+Weekly for Vanilla and LSTM
+- 20d best Rank IC: Daily-only for Vanilla; Daily+Weekly for LSTM
 
-These results provide preliminary evidence that the preferred temporal representation is horizon-dependent rather than universally dominated by one frequency setting. This pattern motivates, but does not yet validate, adaptive multi-scale or adaptive frequency selection.
+These results provide strong evidence that the preferred temporal representation is horizon-dependent rather than universally dominated by one frequency setting. This pattern motivates, but does not yet validate, adaptive multi-scale or adaptive frequency selection.
 
-The Vanilla Transformer is a control and does not satisfy one of the advisor-requested two improved-Transformer algorithm slots. No final model family or frequency configuration should be selected until the Vanilla Transformer, SWiM-style Transformer, and Adaptive PathFormer comparisons are completed.
+The Vanilla Transformer remains a control and does not satisfy one of the advisor-requested two improved-Transformer algorithm slots. It is an additional conventional-attention control, and the next formal step remains the SWiM-style improved Transformer.
 
 ### Phase 4 — PathFormer mechanism ablation on the selected stable frequency configuration
 
@@ -800,7 +1011,7 @@ Current status:
 
 - Ridge stable: PASS
 - LSTM stable: PASS as a single-seed development benchmark
-- Vanilla Transformer control: pending
+- Vanilla Transformer control: PASS as a frozen development benchmark
 - SWiM-style improved Transformer A: pending
 - Adaptive Multi-Scale PathFormer improved Transformer B: pending
 - Formal adaptive-router ablation / interpretation: wait until the model-family comparison is complete
@@ -824,9 +1035,9 @@ It is now: "After Ridge, LSTM, the Vanilla control, the SWiM-style improved Tran
 1. [Done] Freeze the 17-stock balanced Daily + Weekly panel and shared sample index.
 2. [Done] Freeze the Ridge ML baseline with SVD.
 3. [Done] Complete the LSTM single-seed development benchmark.
-4. [Next] Implement the Vanilla Transformer control using the exact same `panel_common` loader, split, normalization, targets, and metrics.
-5. [Pending] Run Vanilla Transformer on Daily / Weekly / Daily+Weekly × 5d / 10d / 20d, starting with seed=42.
-6. [Pending] Port/build the SWiM-style improved Transformer A for the panel.
+4. [Done] Implement and validate the Vanilla Transformer control using the exact same `panel_common` loader, split, normalization, targets, and metrics.
+5. [Done] Run the Vanilla Transformer development benchmark on Daily / Weekly / Daily+Weekly × 5d / 10d / 20d, nominal seed=42.
+6. [Next] Port/build the SWiM-style improved Transformer A for the panel.
 7. [Pending] Run the SWiM-style panel comparison.
 8. [Pending] Build the formal Adaptive Multi-Scale PathFormer panel model.
 9. [Pending] Run the Adaptive PathFormer main comparison.
@@ -845,10 +1056,10 @@ with status:
 
 - Naive: DONE
 - Ridge: DONE / FROZEN
-- LSTM: SINGLE-SEED DONE
-- Vanilla Transformer: NEXT
-- SWiM-style panel Transformer: PENDING
-- Adaptive Multi-Scale PathFormer: PENDING
+- LSTM: DONE / FROZEN development benchmark
+- Vanilla Transformer: DONE / FROZEN development control
+- SWiM-style panel Transformer: NEXT
+- Adaptive Multi-Scale PathFormer: PENDING AFTER SWiM
 - Mechanism ablation: PENDING
 - Formal robustness: PENDING
 - Interpretability: PENDING
