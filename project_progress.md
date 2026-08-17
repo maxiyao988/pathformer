@@ -340,7 +340,7 @@ Do not claim profitable trading performance, causal effects, or universal superi
 
 ## Vanilla Transformer Panel Development Baseline — DONE / FROZEN
 
-The Vanilla Transformer is an additional methodological control in the advisor-aligned model ladder. It is not one of the advisor's explicitly required "improved Transformer" algorithms. Its role is to isolate the effect of generic self-attention relative to the recurrent LSTM baseline, and to separate that effect from the incremental value of structured multi-scale / adaptive mechanisms in the later PathFormer branch.
+The Vanilla Transformer is an additional methodological control in the panel methodological control ladder. It is not one of the advisor's explicitly required "improved Transformer" algorithms. Its role is to isolate the effect of generic self-attention relative to the recurrent LSTM baseline, and to separate that effect from the incremental value of structured multi-scale / adaptive mechanisms in the later PathFormer branch.
 
 ### Completed implementation
 
@@ -557,8 +557,9 @@ The current project status is now materially different from the earlier pre-free
 - Vanilla is numerically stable for the frozen panel, but does not uniformly dominate LSTM or naive baselines across all frequencies and horizons.
 - Vanilla shows clear horizon-dependent frequency preference: Weekly is strongest at 5d ranking, Daily+Weekly is strongest at 10d, and Daily-only is strongest at 20d.
 - Fixed Daily+Weekly fusion is useful at some horizons but not uniformly superior, which strengthens the motivation for structured multi-scale and adaptive scale-selection mechanisms.
-- The advisor-aligned model ladder is: Ridge → nonlinear recurrence (LSTM) → generic self-attention control (Vanilla Transformer) → structured/windowed Transformer improvement (SWiM-style) → adaptive multi-scale Transformer (PathFormer).
-- Experiment 2 is a model-family comparison; Experiment 3 is a PathFormer mechanism ablation. These remain separate.
+- Our panel methodological control ladder is: Ridge → nonlinear recurrence (LSTM) → generic self-attention control (Vanilla Transformer) → structured/windowed-attention Transformer (SWiM-style) → adaptive multi-scale Transformer (PathFormer).
+- This control ladder complements the advisor's literal experimental spine; it is not the advisor's literal Experiment 2.
+- The advisor's literal experimental spine is: Experiment 1 = FSLR diagnostic model comparison, Experiment 2 = panel frequency-configuration comparison, Experiment 3 = Daily+Weekly PathFormer mechanism ablation, Experiment 4 = robustness + interpretability.
 - The old statement that "panel-level ranking quality will be reported separately once Experiment 2 is run" is no longer correct; panel Rank IC is already being computed and reported for the Ridge, LSTM, and Vanilla baselines.
 
 For the historical FSLR late-fusion experiments, `concat` remains the safer default branch for interpretation and `gated` remains a secondary ablation. This does not pre-select the fusion mechanism for the formal panel PathFormer benchmark, which remains pending but is now downstream of the completed Vanilla control.
@@ -618,44 +619,28 @@ The FSLR experimental results should now be framed as follows:
 
 ### Revised Experimental Design (Advisor-Aligned)
 
-#### Experiment 1 — FSLR Case Study / Diagnostic Analysis
+#### Experiment 1 — FSLR Case Study / Diagnostic Model Comparison
 
-This remains a diagnostic, not a mainline benchmark, and does **not** need new ML/DL baselines — A1–A5 already provide sufficient evidence.
+This remains a diagnostic / case-study track, but it is not just a historical narrative. The advisor's literal follow-up after listing the four experiments was: "For 1, choose one machine learning model, one deep learning model, and two improved Transformer algorithms." Accordingly, Experiment 1 should be recorded as a model comparison on the FSLR track, while still retaining the A1–A5 failure-analysis narrative as the diagnostic evidence behind that model selection.
 
-- Reuse the existing A1–A5 results (patch-size search, single vs fixed multiscale, fixed vs static weight, static vs adaptive router, frequency ablation).
-- Keep the focus on understanding failure modes, not on proving a full-frequency router works.
-- This section should document that FSLR is a stress-test / case-study setting for multi-scale modeling and full-frequency instability, not the main experimental proving ground, and **not** the router-interpretability success case (router interpretability belongs in Experiment 4, on the stable panel model only).
+Conceptually, the FSLR model set should include:
 
-#### Experiment 2 — Panel Main Comparison (model-family comparison)
+- one machine-learning model: current Linear baseline
+- one deep-learning model: FSLR plain LSTM baseline, implementation status to be audited / likely missing
+- two improved Transformer algorithms: SWiM-style and PathFormer
+- optional additional conventional Transformer reference: Vanilla Transformer may remain as a supplementary control, but it is not one of the two advisor-requested improved Transformers
 
-This is the panel main model-family comparison in the advisor's original sense: one machine-learning baseline, one deep-learning baseline, one conventional Transformer control, and two improved Transformer algorithms. The core baseline set is therefore conceptually:
+The A1–A5 results remain essential and should be retained as the scientific explanation for why full-frequency naive fusion is unstable. The correct interpretation is that Experiment 1 combines the required FSLR model comparison with the diagnostic failure analysis, rather than treating those as mutually exclusive categories.
 
-- Ridge
-- LSTM
-- Vanilla Transformer (additional control; not counted as one of the two improved Transformer algorithms)
-- SWiM-style / windowed-attention Transformer (Improved Transformer A; panel port pending)
-- Adaptive Multi-Scale PathFormer (Improved Transformer B / proposed model; panel port pending)
+#### Experiment 2 — Panel Frequency-Configuration Comparison
 
-| Role | Model | Status |
-|---|---|---|
-| Naive reference | Zero / Train Mean | DONE |
-| Machine Learning | Ridge | DONE / FROZEN |
-| Deep Learning | LSTM | DONE / FROZEN development benchmark |
-| Transformer control | Vanilla Transformer | DONE / FROZEN development control |
-| Improved Transformer A | SWiM-style / windowed-attention Transformer | NEXT |
-| Improved Transformer B / proposed model | Adaptive Multi-Scale PathFormer | PENDING AFTER SWiM |
+This is the advisor's literal Experiment 2 definition: not a model-family comparison, but a frequency-configuration comparison under the stable frequency-specific encoder + late-fusion framework.
 
-The Vanilla Transformer remains an additional conventional-attention control. It is not counted as one of the advisor-requested two improved Transformer algorithms.
+Scientific question:
 
-This creates the intended comparison ladder:
+How does predictive performance change across different temporal-frequency configurations under the stable panel architecture?
 
-Ridge → nonlinear recurrence (LSTM) → generic self-attention control (Vanilla Transformer) → structured/windowed Transformer improvement (SWiM-style) → adaptive multi-scale Transformer (PathFormer)
-
-**Data-availability constraint (verified against the repo, 2026-08-16):** the panel dataset built by `panel_build_multiscale_dataset.py` only contains **Daily + Weekly** windows for all 24 tickers (`dataset/multiscale_dataset/panel/<TICKER>/` has `X_daily.npy` / `X_weekly.npy` / `y_5d,10d,20d.npy` only). Hourly and Half-Day OHLCV at panel scale do not exist yet — true Bloomberg-quality Hourly/Half-Day history is currently FSLR-only (see the Universe Expansion note above: `yfinance` 1h bars are capped at ~730 days, too short for a proper train/val/test split across 24 tickers). This means the originally-listed combo set (Hourly only / Half-Day only / Hourly + Daily) **cannot be run on the panel today** without first solving the Hourly/Half-Day data-sourcing problem.
-
-The current panel implementation is therefore a data-constrained implementation of the advisor's frequency-specific design, not a conceptual rejection of the intraday branches. The review principle remains: the panel architecture should respect the advisor's stable pattern of frequency-specific encoders + late fusion + optional per-frequency adaptive routing; the missing intraday data simply prevents the full conceptual frequency set from being executed at this stage.
-
-Conceptual advisor-design frequency set:
+Conceptual advisor frequency set:
 
 - Hourly only
 - Half-Day only
@@ -665,37 +650,42 @@ Conceptual advisor-design frequency set:
 - Daily + Weekly
 - All frequencies
 
-Current data-supported panel implementation:
+Current data-supported panel subset:
 
 - Daily only
 - Weekly only
 - Daily + Weekly
 
-All other combinations are **blocked on data / deferred extension**.
+Blocked / deferred because panel-wide intraday data are unavailable:
 
-The main decision is to keep the model family stable and compare meaningful frequency combinations instead of repeating the unstable full-frequency setting, and to be explicit in the writeup that the Hourly/Half-Day panel tier is a data-constrained future extension, not a silently dropped experiment.
+- Hourly only
+- Half-Day only
+- Hourly + Daily
+- All frequencies
 
-#### Experiment 3 — PathFormer mechanism ablation (not a model-family comparison)
+**Data-availability constraint (verified against the repo, 2026-08-16):** the panel dataset built by `panel_build_multiscale_dataset.py` only contains **Daily + Weekly** windows for all 24 tickers (`dataset/multiscale_dataset/panel/<TICKER>/` has `X_daily.npy` / `X_weekly.npy` / `y_5d,10d,20d.npy` only). Hourly and Half-Day OHLCV at panel scale do not exist yet — true Bloomberg-quality Hourly/Half-Day history is currently FSLR-only (see the Universe Expansion note above: `yfinance` 1h bars are capped at ~730 days, too short for a proper train/val/test split across 24 tickers). This means the originally-listed combo set (Hourly only / Half-Day only / Hourly + Daily) **cannot be run on the panel today** without first solving the Hourly/Half-Day data-sourcing problem.
 
-This is a separate experiment from Experiment 2. Experiment 2 asks: which model family performs best under the stable panel framework? Experiment 3 asks: which PathFormer mechanism contributes to performance?
+The current panel implementation is therefore a data-constrained implementation of the advisor's frequency-specific design, not a conceptual rejection of the intraday branches. The review principle remains: the panel architecture should respect the advisor's stable pattern of frequency-specific encoders + late fusion + optional per-frequency adaptive routing; the missing intraday data simply prevents the full conceptual frequency set from being executed at this stage.
 
-Daily + Weekly remains the advisor-suggested configuration for this mechanism study, and the final Experiment-3 setting should be chosen on that basis. The final mechanism-ablation setting is not yet frozen, but the advisor explicitly suggested Daily + Weekly as the current leading panel configuration for this experiment.
+#### Experiment 3 — Daily + Weekly PathFormer Mechanism Ablation
 
-Compare:
+This is the advisor-specified mechanism experiment for the panel. The working configuration is fixed as **Daily + Weekly**. The question is not "which frequency combination should we pick later?" but rather, once the stable Daily+Weekly setting is selected, which PathFormer mechanism contributes most to performance?
+
+Advisor-specified mechanism comparison:
 
 1. Single-scale
-2. Fixed multiscale
+2. Fixed multi-scale
 3. Static learned scale weight
 4. Adaptive router
 
-This directly tests the PathFormer mechanism without conflating it with the model-family comparison in Experiment 2. The two improved Transformer families in Experiment 2 are model-level comparators; the single/fixed/static/adaptive variants in Experiment 3 are mechanism-level ablations of the PathFormer family.
+This should remain a mechanism-level ablation on the fixed Daily+Weekly configuration. Any future change to this configuration should be explicitly revisited with the advisor rather than silently reopened in the markdown.
 
 #### Experiment 4 — Robustness and Interpretability
 
 - Multi-seed robustness: at least 5 seeds, report mean ± std.
 - Report metrics: MAE, Corr, cross-sectional Rank IC (computed per test date across tickers, then averaged over dates), Pred Std / True Std, and direction accuracy where relevant.
 - Router-weight interpretation: analyze how the router activates under high-volatility vs low-volatility and trending vs range-bound regimes.
-- Interpretability should be based on a stable model configuration, not on a model whose full-frequency baseline already failed. **FSLR's adaptive router is not stable (see A4), so it is not a valid router-interpretability subject — this analysis must run on the selected stable panel adaptive configuration, with Daily+Weekly currently the leading multi-frequency candidate.** If the panel adaptive router also proves unstable, report interpretability findings as a failure diagnostic, not as a positive contribution.
+- Interpretability should be based on a stable model configuration, not on a model whose full-frequency baseline already failed. **FSLR's adaptive router is not stable (see A4), so it is not a valid router-interpretability subject — this analysis must run on the selected stable panel adaptive configuration, with Daily+Weekly currently the working configuration.** If the panel adaptive router also proves unstable, report interpretability findings as a failure diagnostic, not as a positive contribution.
 
 ### Panel Normalization Protocol (New — Required for Experiment 2/3)
 
@@ -758,20 +748,19 @@ This is directly aligned with the advisor's original statement that PathFormer a
 ### New Active Roadmap (Advisor-Aligned)
 
 1. **DONE — Preserve FSLR A1–A5 as a negative-result diagnostic case study** to explain why naive full-frequency fusion fails and why the panel baseline must be redesigned.
-2. **DONE — Refactor the panel main experiment** around frequency-specific encoders + late fusion + optional per-frequency router, rather than repeating the unstable all-frequency naive fusion architecture.
-3. **DONE — Panel main model-family comparison** on the frequency combinations actually supported by current panel data: Daily only, Weekly only, Daily + Weekly. Treat Hourly only / Half-Day only / Hourly + Daily / All frequencies as blocked-on-data extensions until a panel-wide intraday source is resolved.
+2. **DONE — Freeze the 17-stock Daily + Weekly panel infrastructure** and standardize the train/val/test split, normalization, and evaluation protocol used by the frozen panel baselines.
+3. **IN PROGRESS — Complete the panel methodological control ladder** across the current data-supported configurations: Daily only, Weekly only, and Daily + Weekly.
    - Ridge: DONE / FROZEN
    - LSTM: DONE / FROZEN development benchmark
    - Vanilla Transformer control: DONE / FROZEN development control
    - SWiM-style improved Transformer A: NEXT
    - Adaptive Multi-Scale PathFormer improved Transformer B: PENDING AFTER SWiM
-4. **PENDING — Select the stable frequency configuration for the PathFormer mechanism ablation** after the Ridge/LSTM/Vanilla-Transformer/SWiM/PathFormer comparison is complete. The advisor explicitly suggested Daily + Weekly for this experiment based on the current panel evidence.
-5. **PENDING — Run the selected-frequency PathFormer mechanism ablation** comparing single-scale vs fixed multiscale vs static learned scale weight vs adaptive router.
-6. **PENDING — Run 5-seed robustness reporting** with mean ± std across the main settings.
-7. **PENDING — Add router-weight interpretation analysis** only for the stable adaptive model.
-8. **PENDING — Final paper writeup**.
+4. **PARTIALLY EXECUTABLE — Advisor Experiment 2 frequency comparison** on the panel architecture: Daily only, Weekly only, Daily + Weekly are current-data-supported; Hourly only, Half-Day only, Hourly + Daily, and All frequencies remain blocked on panel-wide intraday data.
+5. **PENDING — Experiment 3: Daily + Weekly PathFormer mechanism ablation** comparing single-scale vs fixed multi-scale vs static learned scale weight vs adaptive router.
+6. **PENDING — Experiment 4: 5-seed robustness and router interpretation** with mean ± std reporting and regime analysis.
+7. **PENDING — Final paper writeup**.
 
-This roadmap keeps the advisor-aligned motivation without implying that the final frequency configuration or PathFormer architecture has already been selected.
+This roadmap separates the advisor's literal four-experiment spine from the additional panel methodological control ladder. The model-control ladder remains scientifically useful but is not the literal definition of Experiment 2.
 
 ### Panel Pipeline Status
 
@@ -902,9 +891,9 @@ Final status line for this phase:
 - [Done] LSTM single-seed development benchmark passed its stability gate.
 - [Done] Vanilla Transformer development benchmark passed its control-benchmark gate.
 
-### Phase 3 — Panel main comparison (Experiment 2) — IN PROGRESS
+### Phase 3A — Panel Methodological / Architecture Controls — IN PROGRESS
 
-This is the current main experimental block, but it is a model-family comparison, not a PathFormer mechanism ablation.
+This is the additional model-control ladder used to attribute whether the observed temporal-frequency patterns are architecture-specific or persist across model families. It is not the advisor's literal Experiment 2.
 
 Completed model families:
 
@@ -932,13 +921,40 @@ These results provide strong evidence that the preferred temporal representation
 
 The Vanilla Transformer remains a control and does not satisfy one of the advisor-requested two improved-Transformer algorithm slots. It is an additional conventional-attention control, and the next formal step remains the SWiM-style improved Transformer.
 
-### Phase 4 — PathFormer mechanism ablation on the selected stable frequency configuration
+### Experiment 2 — Panel Frequency-Configuration Comparison
 
-This is not a second model-family comparison. It is the PathFormer mechanism attribution experiment that follows the panel main comparison. The four-level ablation remains pending and will be run only on the selected stable frequency configuration after the Ridge/LSTM/Vanilla-Transformer/SWiM/PathFormer comparison is complete. Daily+Weekly is the current leading multi-frequency candidate, but the LSTM results already show that Weekly-only can dominate at some horizons, so the final configuration must remain data-driven.
+This is the advisor-defined frequency-configuration experiment, separate from the model-control ladder above. The scientific question is how predictive performance changes across temporal-frequency configurations under the stable frequency-specific encoder + late-fusion framework.
 
-- [Pending] Build the selected-frequency mechanism ablation ladder.
+Advisor-defined configurations:
+
+- Hourly only
+- Half-Day only
+- Daily only
+- Weekly only
+- Hourly + Daily
+- Daily + Weekly
+- All frequencies
+
+Current data-supported panel subset:
+
+- Daily only
+- Weekly only
+- Daily + Weekly
+
+Blocked / deferred because panel-wide intraday data are unavailable:
+
+- Hourly only
+- Half-Day only
+- Hourly + Daily
+- All frequencies
+
+### Phase 4 — Experiment 3: Daily + Weekly PathFormer Mechanism Ablation
+
+This is the PathFormer mechanism experiment that follows the panel frequency comparison. **Daily + Weekly is the advisor-specified working configuration** for Experiment 3.
+
+- [Pending] Build the Daily+Weekly mechanism ablation ladder.
   - Single-scale
-  - Fixed multiscale
+  - Fixed multi-scale
   - Static learned scale weight
   - Adaptive router
   - Optional dual-attention checks: full dual attention / intra-only / inter-only
@@ -946,7 +962,7 @@ This is not a second model-family comparison. It is the PathFormer mechanism att
 - [Pending] Determine whether the adaptive router provides improvement only after the frequency-specific representation is stable.
 - [Pending] Decide whether the router should be considered a core mechanism or only an optional extension.
 
-Current motivation is unchanged but more careful: Ridge favored Daily+Weekly for Rank IC at all horizons, while the LSTM development benchmark favored Daily+Weekly at 5d and 20d but Weekly-only at 10d. This indicates that multi-frequency modeling is promising but not universally dominant; the final ablation configuration will be chosen only after the Transformer and PathFormer comparisons are completed.
+The current implementation should not silently reopen the Experiment-3 frequency configuration based only on intermediate results. If the team later finds strong evidence to revisit the configuration, that should be done explicitly with the advisor rather than by silently altering the experiment definition in the markdown.
 
 ### Phase 5 — Robustness and reproducibility (Experiment 4)
 
@@ -1038,19 +1054,19 @@ It is now: "After Ridge, LSTM, the Vanilla control, the SWiM-style improved Tran
 4. [Done] Implement and validate the Vanilla Transformer control using the exact same `panel_common` loader, split, normalization, targets, and metrics.
 5. [Done] Run the Vanilla Transformer development benchmark on Daily / Weekly / Daily+Weekly × 5d / 10d / 20d, nominal seed=42.
 6. [Next] Port/build the SWiM-style improved Transformer A for the panel.
-7. [Pending] Run the SWiM-style panel comparison.
+7. [Pending] Run the SWiM-style panel comparison within the additional methodological control ladder.
 8. [Pending] Build the formal Adaptive Multi-Scale PathFormer panel model.
-9. [Pending] Run the Adaptive PathFormer main comparison.
-10. [Pending] Complete the model-family comparison across Ridge, LSTM, Vanilla Transformer, SWiM-style Transformer, and Adaptive PathFormer.
-11. [Pending] Select the stable frequency/model configuration for ablation.
-12. [Pending] Run the PathFormer mechanism ablation: single / fixed / static / adaptive.
+9. [Pending] Run the Adaptive PathFormer main comparison within the additional methodological control ladder.
+10. [Pending] Complete the additional panel methodological control ladder across Ridge, LSTM, Vanilla Transformer, SWiM-style Transformer, and Adaptive PathFormer.
+11. [Pending] Execute the advisor-defined Experiment 2 frequency comparison on the current data-supported set: Daily only, Weekly only, Daily + Weekly.
+12. [Pending] Run the Advisor Experiment 3 Daily+Weekly PathFormer mechanism ablation: single / fixed / static / adaptive.
 13. [Pending] Run 5-seed robustness on the selected model family.
 14. [Pending] Produce router / regime interpretation analysis.
 15. [Pending] Finalize the panel-results writeup and the FSLR diagnostic section.
 
-Current experiment chain:
+Current control ladder:
 
-Naive → Ridge → LSTM → Vanilla Transformer [control] → SWiM-style Transformer [Improved Transformer A] → Adaptive Multi-Scale PathFormer [Improved Transformer B / proposed model] → PathFormer mechanism ablation → 5-seed robustness → router interpretation
+Naive → Ridge → LSTM → Vanilla Transformer [control] → SWiM-style Transformer [Improved Transformer A] → Adaptive Multi-Scale PathFormer [Improved Transformer B / proposed model]
 
 with status:
 
