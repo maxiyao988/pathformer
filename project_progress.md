@@ -353,7 +353,7 @@ The current project status is now materially different from the earlier pre-free
 - The next benchmark is the Vanilla Transformer on the same frozen panel protocol.
 - The old statement that "panel-level ranking quality will be reported separately once Experiment 2 is run" is no longer correct; panel Rank IC is already being computed and reported for the Ridge and LSTM baselines.
 
-`concat` remains the safer default branch for interpretation; `gated` remains a secondary ablation when needed.
+For the historical FSLR late-fusion experiments, `concat` remains the safer default branch for interpretation and `gated` remains a secondary ablation. This does not pre-select the fusion mechanism for the formal panel PathFormer benchmark, which has not yet been completed.
 
 ---
 
@@ -422,10 +422,12 @@ This is the primary experimental block. **The "1 machine learning + 1 deep learn
 
 | Type | Model |
 |---|---|
-| Machine Learning | Ridge or XGBoost |
-| Deep Learning | LSTM or MLP |
+| Machine Learning | Ridge |
+| Deep Learning | LSTM |
 | Transformer baseline | Vanilla Transformer |
-| Improved Transformer | Late-Fusion PathFormer / Adaptive Multi-Scale PathFormer |
+| Improved Transformer | Late-Fusion / Adaptive Multi-Scale PathFormer |
+
+The implemented comparison chain is therefore Ridge → LSTM → Vanilla Transformer → Improved Transformer; XGBoost and MLP are no longer required for the core benchmark unless introduced later as optional robustness baselines.
 
 **Data-availability constraint (verified against the repo, 2026-08-16):** the panel dataset built by `panel_build_multiscale_dataset.py` only contains **Daily + Weekly** windows for all 24 tickers (`dataset/multiscale_dataset/panel/<TICKER>/` has `X_daily.npy` / `X_weekly.npy` / `y_5d,10d,20d.npy` only). Hourly and Half-Day OHLCV at panel scale do not exist yet — true Bloomberg-quality Hourly/Half-Day history is currently FSLR-only (see the Universe Expansion note above: `yfinance` 1h bars are capped at ~730 days, too short for a proper train/val/test split across 24 tickers). This means the originally-listed combo set (Hourly only / Half-Day only / Hourly + Daily) **cannot be run on the panel today** without first solving the Hourly/Half-Day data-sourcing problem.
 
@@ -460,10 +462,13 @@ This directly tests the mechanism of interest without combining everything into 
 
 ### Panel Normalization Protocol (New — Required for Experiment 2/3)
 
-Pooling 24 tickers with very different volatility profiles (e.g. NEE vs PLUG/FCEL) means a naive pooled MSE will be dominated by the highest-volatility names unless normalization is explicit. Required protocol:
+The repository retains a broader 24-stock dataset, but the frozen primary experiment uses the balanced 17-stock panel. Because these 17 stocks still have materially different volatility and scale profiles, normalization remains essential.
+
+Required protocol:
 
 - Normalize features per ticker and per frequency using **train-set-only** statistics (no leakage from val/test).
-- Evaluate targets both in raw log-return space and, if needed, volatility-scaled return space.
+- Primary target/evaluation space: raw future log returns.
+- Volatility-scaled targets remain an optional robustness extension and have NOT yet been part of the frozen Ridge/LSTM benchmark.
 - Report metrics both **pooled** (all tickers together) and **ticker-averaged** (metric computed per ticker, then averaged) — these can diverge a lot and both should be shown.
 - Compute Rank IC **cross-sectionally by date** (rank predictions vs realized returns across tickers on the same date), then average across test dates — do not compute a single pooled time-series rank correlation and call it "IC".
 
@@ -494,13 +499,20 @@ This is a more credible and publication-oriented experimental design than simply
 
 ### New Active Roadmap (Advisor-Aligned)
 
-1. **Keep the FSLR A1–A5 diagnostics as a negative-result case study** to explain why naive full-frequency fusion fails and why the panel baseline must be redesigned.
-2. **Refactor the panel main experiment** around frequency-specific encoders + late fusion + optional router, rather than repeating the unstable all-frequency naive fusion architecture.
-3. **Run the panel main comparison** on the frequency combinations actually supported by current panel data: Daily only, Weekly only, Daily + Weekly. Treat Hourly only / Half-Day only / Hourly + Daily / All frequencies as blocked-on-data extensions until a panel-wide intraday source is resolved.
-4. **Run the Daily + Weekly ablation** comparing single-scale vs fixed multiscale vs static learned scale weight vs adaptive router.
-5. **Run 5-seed robustness reporting** with mean ± std across the main settings.
-6. **Add router-weight interpretation analysis** only for the stable model family.
-7. **Keep A6/A7 as secondary or deferred analysis**, as they are not a strong primary narrative when the underlying full-frequency baseline is already known to be unstable.
+1. **DONE — Preserve FSLR A1–A5 as a negative-result diagnostic case study** to explain why naive full-frequency fusion fails and why the panel baseline must be redesigned.
+2. **DONE — Refactor the panel main experiment** around frequency-specific encoders + late fusion + optional router, rather than repeating the unstable all-frequency naive fusion architecture.
+3. **IN PROGRESS — Panel main comparison** on the frequency combinations actually supported by current panel data: Daily only, Weekly only, Daily + Weekly. Treat Hourly only / Half-Day only / Hourly + Daily / All frequencies as blocked-on-data extensions until a panel-wide intraday source is resolved.
+   - Ridge: DONE
+   - LSTM single-seed: DONE
+   - Vanilla Transformer: NEXT
+   - Improved Transformer / PathFormer: PENDING
+4. **PENDING — Select the stable frequency configuration for the core ablation** after the Ridge/LSTM/Vanilla-Transformer/improved-Transformer comparison is complete. Daily+Weekly remains the leading multi-frequency candidate, but it is not pre-frozen as the final ablation setting.
+5. **PENDING — Run the selected-frequency ablation** comparing single-scale vs fixed multiscale vs static learned scale weight vs adaptive router.
+6. **PENDING — Run 5-seed robustness reporting** with mean ± std across the main settings.
+7. **PENDING — Add router-weight interpretation analysis** only for the stable model family.
+8. **PENDING — Final paper writeup**.
+
+This roadmap keeps the advisor-aligned motivation without implying that the final frequency configuration or PathFormer architecture has already been selected.
 
 ### Panel Pipeline Status
 
@@ -650,13 +662,15 @@ Current preliminary evidence from the LSTM development benchmark:
 - 10d best Rank IC = Weekly-only
 - 20d best Rank IC = Daily+Weekly
 
-This suggests that frequency preference is horizon-dependent. The final stable configuration must not be selected until the Vanilla Transformer and improved-Transformer panel results are also available.
+These results provide preliminary evidence that the preferred temporal representation is horizon-dependent rather than universally dominated by one frequency setting. This pattern motivates, but does not yet validate, adaptive multi-scale or adaptive frequency selection.
 
-### Phase 4 — Core PathFormer ablation on the most stable frequency pair
+No final model family or frequency configuration should be selected until the Vanilla Transformer and improved-Transformer comparisons are completed.
 
-The ablation remains pending.
+### Phase 4 — Core PathFormer ablation on the selected stable frequency configuration
 
-- [Pending] Build the Daily + Weekly main ablation ladder.
+The ablation remains pending and will be run on the selected stable frequency configuration after the Ridge/LSTM/Vanilla-Transformer/improved-Transformer comparison is complete. Daily+Weekly is the current leading multi-frequency candidate, but the LSTM results already show that Weekly-only can dominate at some horizons, so the final configuration must remain data-driven.
+
+- [Pending] Build the selected-frequency main ablation ladder.
   - Single-scale
   - Fixed multiscale
   - Static learned scale weight
@@ -717,7 +731,8 @@ Important clarification:
   - model benchmarking
   - identify the strongest panel baseline
 - [Pending] Section 3: Ablation study
-  - Daily + Weekly core mechanism validation
+  - Core mechanism validation on the selected stable frequency configuration
+  - Daily+Weekly currently remains the leading multi-frequency candidate, but the final ablation setting must be selected only after the Transformer / improved-Transformer comparison is complete
   - single-scale vs fixed multiscale vs static weight vs adaptive router
 - [Pending] Section 4: Robustness and interpretation
   - 5-seed mean ± std
