@@ -6,9 +6,9 @@
 
 **Pre-freeze verification (ran 2026-08-16, PASSED):** `scripts/python/panel_verify_17stock_sample_index.py` confirmed that for the 17-stock panel's train split, Daily-only, Weekly-only, and Daily+Weekly settings all resolve to the exact same 31,008-sample `(ticker, anchor_date)` index (not just by construction — checked empirically via non-NaN/non-Inf masks on `X_daily`/`X_weekly`). This was the required sanity gate before freezing the panel choice.
 
-**Current active track (2026-08-16, supersedes all wording below that implies a 4-frequency panel):** the active research track is a **Daily + Weekly multi-stock panel** with frequency-specific encoders, late fusion, and an optional per-frequency adaptive scale router. This is a deliberate scope reduction from the earlier "20–50 tickers x Hourly/Half-Day/Daily/Weekly" framing, driven by a verified data constraint: panel-wide Hourly/Half-Day OHLCV does not exist yet (see Experiment 2's data-availability note below). **FSLR is retained only as a single-stock, full-frequency (Hourly/Half-Day/Daily/Weekly) diagnostic case study** that explains why naive full-frequency fusion is not a viable panel blueprint — it is not the router-interpretability success case (see correction below).
+**Current active track (2026-08-16, supersedes all wording below that implies a 4-frequency panel):** the active research track is a **Daily + Weekly multi-stock panel** with frequency-specific encoders, late fusion, and an optional per-frequency adaptive scale router. This is a deliberate scope reduction from the earlier "20–50 tickers x Hourly/Half-Day/Daily/Weekly" framing, driven by a verified data constraint: panel-wide Hourly/Half-Day OHLCV does not exist yet (see Experiment 2's data-availability note below). **FSLR is retained as a single-stock, full-frequency (Hourly/Half-Day/Daily/Weekly) case-study / diagnostic model-comparison track.** It provides both the advisor-requested Experiment-1 model-comparison setting (one ML model, one DL model, two improved Transformer algorithms) and the diagnostic evidence showing why naive full-frequency fusion is not a viable panel blueprint. It is not the main panel proving ground or the final router-interpretability setting.
 
-Project focus was single-stock, multi-scale, single-modality modeling on FSLR using PathFormer-style time-series baselines. This FSLR-only setup is preserved as the validated diagnostic reference pipeline, not as the main experimental subject going forward.
+Project focus was single-stock, multi-scale, single-modality modeling on FSLR using PathFormer-style time-series baselines. This FSLR-only setup is preserved as the case-study / diagnostic model-comparison track that motivates the stable panel design, not as the main panel experimental subject going forward.
 
 - Ticker: FSLR
 - Usable aligned sample period: 2011-11-02 to 2026-05-07
@@ -23,7 +23,7 @@ Project focus was single-stock, multi-scale, single-modality modeling on FSLR us
 
 ## Current Objective
 
-**Build and evaluate a stable Daily + Weekly panel framework** (frequency-specific encoders + late fusion + optional adaptive scale router), while preserving the FSLR full-frequency experiments purely as diagnostic evidence for why that design is necessary. The FSLR Task 8 protocol below is historical/completed context, not the active objective — those items are paused per the Advisor Pivot section.
+**Build and evaluate a stable Daily + Weekly panel framework** (frequency-specific encoders + late fusion + optional adaptive scale router), while preserving FSLR as the single-stock case-study / diagnostic model-comparison track that motivates the stable panel design. The FSLR Task 8 protocol below is historical/completed context, not the active objective — those items are paused per the Advisor Pivot section.
 
 Primary scripts (FSLR historical reference, already completed):
 
@@ -332,7 +332,7 @@ Relevant outputs:
    - 20d: Daily+Weekly
    for LSTM Rank IC.
 5. This is consistent with, but does not yet prove, the adaptive multi-scale hypothesis: a fixed temporal scale or frequency may not be optimal across all forecasting horizons and market states.
-6. The Vanilla Transformer control is the next analytical step for testing whether generic self-attention changes or strengthens this pattern under the exact same frozen panel protocol.
+6. The completed Vanilla Transformer control provides an additional check on whether the horizon-dependent temporal-frequency pattern persists under generic self-attention. The next analytical step is the SWiM-style improved Transformer under the same frozen panel protocol.
 
 Do not claim profitable trading performance, causal effects, or universal superiority of Daily+Weekly or LSTM over naive forecasting.
 
@@ -1013,8 +1013,8 @@ Important clarification:
   - model benchmarking
   - identify the strongest panel baseline
 - [Pending] Section 3: Ablation study
-  - Core mechanism validation on the selected stable frequency configuration
-  - Daily+Weekly currently remains the leading multi-frequency candidate, but the final ablation setting must be selected only after the Transformer / improved-Transformer comparison is complete
+  - Core mechanism validation on the fixed Daily+Weekly Experiment-3 configuration
+  - Daily+Weekly is the advisor-specified working configuration for the Experiment-3 PathFormer mechanism ablation. Any future change to this configuration should be explicitly revisited with the advisor rather than silently changed based on intermediate results.
   - single-scale vs fixed multiscale vs static weight vs adaptive router
 - [Pending] Section 4: Robustness and interpretation
   - 5-seed mean ± std
@@ -1040,9 +1040,10 @@ It is now: "After Ridge, LSTM, the Vanilla control, the SWiM-style improved Tran
 
 ## Historical FSLR Reporting Actions (Paused)
 
-1. Build final comparison table against Linear / Vanilla Transformer / SWiM using the same horizons and metrics.
-2. Write report text with explicit advisor checklist mapping and final protocol statement.
-3. Mark `concat` as primary late-fusion variant and `gated` as ablation in the main narrative.
+1. Audit the repository to determine whether a plain FSLR LSTM baseline already exists. Do not claim it exists unless verified. Status: "FSLR plain LSTM baseline: implementation status to be audited / likely missing."
+2. Complete the advisor-requested FSLR core model-comparison set: Linear + LSTM + SWiM-style + PathFormer.
+3. Retain Vanilla Transformer as an optional supplementary conventional Transformer reference, not one of the two advisor-requested improved Transformer slots.
+4. Preserve the A1–A5 diagnostic narrative and the concat/gated historical findings separately from the core model-comparison table, and write report text with explicit advisor checklist mapping and final protocol statement.
 
 ---
 
