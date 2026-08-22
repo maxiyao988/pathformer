@@ -544,25 +544,548 @@ Therefore, nominal seed 42 on Apple MPS does not guarantee bitwise run-to-run de
 
 ---
 
+## SWiM-style Panel Transformer — SINGLE-SEED COMPLETE / ARCHITECTURE FROZEN
+
+SWiM is the improved Transformer A in the panel methodological control ladder:
+
+Ridge
+→ LSTM
+→ Vanilla Transformer
+→ SWiM-style Transformer
+→ Adaptive Multi-Scale PathFormer
+
+Its scientific question is:
+
+> Does imposing structured local / shifted-window attention improve on generic global self-attention, before introducing adaptive multi-scale routing?
+
+This is a methodological control / improved Transformer baseline. It is not the proposed final adaptive model, and it remains separate from the advisor's literal Experiment 2 definition, which is a panel frequency-configuration comparison.
+
+### Historical FSLR SWiM forensic audit
+
+The older FSLR SWiM implementation is still relevant as a historical comparison model, but it is not the blueprint for the panel benchmark.
+
+Historical FSLR SWiM used:
+
+- input = one concatenated 160-token sequence:
+  - Hourly 24 + Half-Day 20 + Daily 90 + Weekly 26
+- Linear(5 -> 32)
+- four shifted-window blocks
+- d_model = 32
+- nhead = 4
+- window_size = 16
+- alternating shift = 0 / 8
+- Pre-LN
+- mean pooling over the full concatenated sequence
+- one final prediction head
+- no frequency-specific branches
+- no late fusion
+- no frequency embedding
+- no multi-scale router
+- no adaptive scale mechanism
+
+Important forensic finding: the historical implementation used `torch.roll` for shifted windows but did not use a shifted-window boundary attention mask. Therefore cyclic wrap-around tokens could attend across an artificial boundary.
+
+This historical implementation should not be copied literally into the panel benchmark.
+
+Additional audit notes:
+
+- `window_size=16` belonged to the historical 160-token concatenated FSLR sequence and was not reused as a panel hyperparameter.
+- the historical FSLR SWiM remains useful as the improved-Transformer comparison model for the single-stock case study, but it is not the architectural blueprint for the frozen panel benchmark.
+
+### Frozen panel SWiM architecture
+
+Formal script:
+
+- `scripts/python/panel_baseline_swim.py`
+
+Frozen architecture:
+
+Single-frequency branch:
+
+```text
+sequence [B,T,F]
+-> Linear(F,64)
+-> fixed sinusoidal positional encoding
+-> SWiM block 1: local window attention, shift=0
+-> SWiM block 2: shifted-window attention
+-> masked mean pooling over valid timesteps
+-> representation
+-> prediction head
+```
+
+Frequency-specific parameters:
+
+Daily:
+- `window_size = 10`
+- `shift_size = 5`
+
+Weekly:
+- `window_size = 4`
+- `shift_size = 2`
+
+Shared architecture:
+
+- d_model = 64
+- nhead = 4
+- dim_feedforward = 128
+- dropout = 0.1
+- exactly 2 SWiM blocks per branch
+- Post-LN residual structure
+- ReLU FFN
+- fixed sinusoidal positional encoding
+
+Daily+Weekly:
+
+```text
+Daily SWiM branch ----\
+                       -> concat -> Linear(128,64) -> ReLU -> Linear(64,1)
+Weekly SWiM branch ---/
+```
+
+The panel SWiM contains:
+
+- frequency-specific encoders
+- late concat fusion
+
+and contains no:
+
+- early raw-frequency fusion
+- adaptive router
+- learned scale router
+- multi-scale patch competition
+- gated fusion
+- cross-frequency attention
+- ticker embedding
+
+Parameter counts:
+
+- daily_only = 67,393
+- weekly_only = 67,393
+- daily_weekly = 142,977
+
+### Correct shifted-window implementation
+
+The key implementation correction relative to the historical FSLR SWiM is that the panel version uses a correct local-window masking scheme rather than a cyclic wrap-around approximation.
+
+The panel implementation uses:
+
+- zero padding rather than repeated-last-token padding
+- explicit validity mask
+- shifted-window region IDs
+- exact hard attention blocking for artificial wrap-around interactions
+- padded keys blocked from valid queries
+- padded query rows kept numerically defined with a dummy allowed key and then hard-zeroed
+- reverse shift after window attention
+- hard-zero invalid padded positions after sublayers
+- masked mean pooling over real timesteps only
+
+Masked mean pooling was selected because with only two local / shifted-window blocks, a final-timestep token does not have the same global receptive field as a global-attention Transformer. Therefore final-token pooling could artificially handicap the SWiM baseline.
+
+This should be recorded as a comparison caveat, not as a bug:
+
+- Vanilla uses final-token representation.
+- SWiM uses masked mean pooling.
+
+The two baseline designs differ both in attention mechanism and pooling strategy.
+
+### Frozen training protocol
+
+The panel SWiM benchmark follows the same frozen panel protocol as the other deep baselines:
+
+- frozen 17-stock balanced panel
+- Daily / Weekly / Daily+Weekly
+- horizons = 5d / 10d / 20d
+- seed = 42
+- batch_size = 32
+- learning_rate = 1e-4
+- optimizer = Adam
+- loss = HuberLoss(delta=1.0)
+- gradient clipping max_norm = 1.0
+- max_epochs = 100
+- early_stopping_patience = 10
+- validation Huber loss for checkpoint selection
+- restore best validation checkpoint before test evaluation
+- train-only per-ticker / per-frequency / per-feature normalization
+- raw future log-return target
+- same frozen sample index as Ridge / LSTM / Vanilla
+- same pooled + ticker-average evaluation
+- same per-date cross-sectional Rank IC implementation
+
+Formal execution backend:
+
+- Apple MPS was used for the completed benchmark.
+
+### MPS numerical-debugging history
+
+This section is included for scientific transparency, but it is not meant to dominate the SWiM narrative.
+
+Initial clean formal MPS Daily-5d runs produced intermittent epoch-1:
+
+- `train_loss = NaN`
+- `val_loss = NaN`
+
+CPU full-epoch diagnostics remained finite.
+
+A/B/C/D/E real-MPS causal diagnostics were then run as separate processes:
+
+- A = clean production-like diagnostic
+- B = explicit synchronize after model construction
+- C = model parameter host read
+- D = explicit synchronize immediately before training loop
+- E = CPU RNG fingerprint only
+
+All five completed:
+
+- 969 / 969 training batches
+- full validation
+- finite losses
+
+Therefore:
+
+- there was no evidence that an explicit `torch.mps.synchronize()` was necessary to fix the problem
+- no permanent synchronize workaround was introduced
+
+A remaining concrete execution-order difference was identified.
+
+Old formal single-frequency form:
+
+```python
+return model(x_batch.to(device)), y_batch.to(device)
+```
+
+Python evaluates this approximately as:
+
+- `x -> device`
+- `forward`
+- `y -> device`
+
+Diagnostic path used:
+
+```python
+x -> device
+y -> device
+forward
+```
+
+Production batched_forward was therefore changed to explicit pre-transfer:
+
+```python
+x_batch = x_batch.to(device)
+y_batch = y_batch.to(device)
+return model(x_batch), y_batch
+```
+
+and analogously for Daily+Weekly:
+
+```python
+x_daily -> device
+x_weekly -> device
+y -> device
+then model forward
+```
+
+This did not alter:
+
+- architecture
+- attention mask semantics
+- optimizer
+- loss
+- hyperparameters
+- labels
+- sample split
+- metrics
+
+After explicit pre-transfer:
+
+- a clean Daily-only / 5d formal MPS run completed to early stopping
+- the complete 9-configuration MPS benchmark subsequently completed without the training-loss NaN failure
+
+Use conservative wording:
+
+> "The explicit pre-transfer implementation was retained because it produced a successful clean formal run and a successful full benchmark. However, the exact low-level MPS root cause was not formally isolated, so this should not be described as definitive causal proof that transfer ordering alone caused the original NaN."
+
+This wording avoids unsupported claims.
+
+It is also important to note that:
+
+- the `PyArrow` deprecation warning remained unrelated to model logic
+- the local SciPy / NumPy compatibility warning remains an environment cleanup item, but there is no evidence from this experiment that it caused the SWiM MPS failure
+
+### Formal 9-configuration SWiM results
+
+The nominal-seed-42 full panel benchmark completed successfully:
+
+- 3 frequency settings × 3 horizons = 9 experiments
+- total experiment runtime ≈ 1h 20m 49s
+
+The formal benchmark used the repository outputs:
+
+- `scripts/python/panel_baseline_swim.py`
+- `dataset/audit/panel_swim_summary_metrics.csv`
+- `dataset/audit/panel_swim_test_predictions.csv`
+- `dataset/audit/panel_swim_training_history.csv`
+- `dataset/audit/panel_swim_rank_ic_by_date.csv`
+- `dataset/audit/panel_swim_vs_baselines_summary.csv`
+- `dataset/audit/panel_swim_final_summary.txt`
+- `dataset/audit/panel_swim_full_9config_run.log`
+
+DAILY ONLY
+
+5d:
+- best_epoch = 8
+- epochs_trained = 18
+- val_loss = 0.004226
+- test_mse = 0.010510
+- test_mae = 0.071562
+- test_corr = -0.031094
+- ticker_avg_corr = -0.044086
+- mean_rank_ic = -0.048280
+- median_rank_ic = -0.041667
+- rank_ic_std = 0.264860
+- positive_ic_ratio = 0.443878
+- direction_accuracy = 0.467287
+- pred_std = 0.01618801
+- true_std = 0.099987
+- pred_std_true_std_ratio = 0.161901
+
+10d:
+- best_epoch = 2
+- epochs_trained = 12
+- val_loss = 0.008011
+- test_mse = 0.020151
+- test_mae = 0.098892
+- test_corr = -0.007269
+- ticker_avg_corr = -0.035056
+- mean_rank_ic = 0.020621
+- median_rank_ic = 0.017157
+- rank_ic_std = 0.258874
+- positive_ic_ratio = 0.540816
+- direction_accuracy = 0.515906
+- pred_std = 0.02860983
+- true_std = 0.138619
+- pred_std_true_std_ratio = 0.206392
+
+20d:
+- best_epoch = 7
+- epochs_trained = 17
+- val_loss = 0.013977
+- test_mse = 0.046321
+- test_mae = 0.155787
+- test_corr = -0.093693
+- ticker_avg_corr = 0.008221
+- mean_rank_ic = -0.079419
+- median_rank_ic = -0.068627
+- rank_ic_std = 0.240799
+- positive_ic_ratio = 0.397959
+- direction_accuracy = 0.456182
+- pred_std = 0.06023693
+- true_std = 0.191052
+- pred_std_true_std_ratio = 0.315291
+
+WEEKLY ONLY
+
+5d:
+- best_epoch = 17
+- epochs_trained = 27
+- val_loss = 0.004000
+- test_mse = 0.011385
+- test_mae = 0.074432
+- test_corr = 0.044513
+- ticker_avg_corr = 0.159486
+- mean_rank_ic = 0.020262
+- median_rank_ic = 0.001225
+- rank_ic_std = 0.282901
+- positive_ic_ratio = 0.500000
+- direction_accuracy = 0.512155
+- pred_std = 0.03046427
+- true_std = 0.099987
+- pred_std_true_std_ratio = 0.304681
+
+10d:
+- best_epoch = 17
+- epochs_trained = 27
+- val_loss = 0.008334
+- test_mse = 0.028319
+- test_mae = 0.119735
+- test_corr = -0.058474
+- ticker_avg_corr = 0.015638
+- mean_rank_ic = -0.035014
+- median_rank_ic = -0.058824
+- rank_ic_std = 0.261693
+- positive_ic_ratio = 0.418367
+- direction_accuracy = 0.489346
+- pred_std = 0.07175879
+- true_std = 0.138619
+- pred_std_true_std_ratio = 0.517671
+
+20d:
+- best_epoch = 8
+- epochs_trained = 18
+- val_loss = 0.014541
+- test_mse = 0.045282
+- test_mae = 0.153759
+- test_corr = -0.078233
+- ticker_avg_corr = -0.023422
+- mean_rank_ic = -0.060881
+- median_rank_ic = -0.046569
+- rank_ic_std = 0.235785
+- positive_ic_ratio = 0.428571
+- direction_accuracy = 0.460534
+- pred_std = 0.06766824
+- true_std = 0.191052
+- pred_std_true_std_ratio = 0.354188
+
+DAILY + WEEKLY
+
+5d:
+- best_epoch = 8
+- epochs_trained = 18
+- val_loss = 0.004202
+- test_mse = 0.010543
+- test_mae = 0.070441
+- test_corr = -0.043694
+- ticker_avg_corr = 0.009967
+- mean_rank_ic = -0.024711
+- median_rank_ic = -0.039216
+- rank_ic_std = 0.260778
+- positive_ic_ratio = 0.443878
+- direction_accuracy = 0.479142
+- pred_std = 0.01522880
+- true_std = 0.099987
+- pred_std_true_std_ratio = 0.152307
+
+10d:
+- best_epoch = 2
+- epochs_trained = 12
+- val_loss = 0.008514
+- test_mse = 0.025703
+- test_mae = 0.110350
+- test_corr = -0.062927
+- ticker_avg_corr = -0.010852
+- mean_rank_ic = -0.014862
+- median_rank_ic = -0.004902
+- rank_ic_std = 0.286935
+- positive_ic_ratio = 0.482143
+- direction_accuracy = 0.496098
+- pred_std = 0.06260008
+- true_std = 0.138619
+- pred_std_true_std_ratio = 0.451599
+
+20d:
+- best_epoch = 1
+- epochs_trained = 11
+- val_loss = 0.014312
+- test_mse = 0.036517
+- test_mae = 0.134719
+- test_corr = NaN
+- ticker_avg_corr = NaN
+- mean_rank_ic = NaN
+- median_rank_ic = NaN
+- rank_ic_std = NaN
+- positive_ic_ratio = NaN
+- direction_accuracy = 0.525810
+- pred_std = 9.313226e-10
+- true_std = 0.191052
+- pred_std_true_std_ratio = 4.874717e-09
+
+### Constant-collapse interpretation
+
+The Daily+Weekly / 20d SWiM result is a constant-prediction collapse.
+
+Evidence:
+
+- `PredStd ≈ 9.3e-10`
+- `PredStd / TrueStd ≈ 4.9e-9`
+
+Therefore Pearson correlation and cross-sectional Rank IC are undefined.
+
+This is not the earlier MPS training NaN failure. It is a model-output collapse that occurred after training remained finite.
+
+Importantly:
+
+- The earlier MPS issue was: training loss became NaN.
+- The D+W 20d result was: training stayed finite, but predictions collapsed to an almost constant value.
+
+Do not interpret its `MSE = 0.036517` as evidence that D+W is the best SWiM 20d model.
+
+The naive 20d zero-return MSE is approximately 0.036503, so the collapsed SWiM is effectively behaving like an unconditional near-zero predictor.
+
+### Scientific interpretation
+
+Within SWiM, the mean Rank IC best by horizon among finite configurations is:
+
+- 5d: Weekly-only = 0.020262
+- 10d: Daily-only = 0.020621
+- 20d: no positive configuration
+  - Daily = -0.079419
+  - Weekly = -0.060881
+  - Daily+Weekly = undefined due to constant collapse
+
+Point-MSE pattern:
+
+- 5d: Daily-only = 0.010510 is lowest among valid SWiM settings
+- 10d: Daily-only = 0.020151 is lowest
+- 20d: D+W numerical MSE = 0.036517 must not be treated as a valid model superiority result because it is a constant-collapse cell; among non-collapsed SWiM settings, Weekly = 0.045282 < Daily = 0.046321
+
+Core interpretation:
+
+- fixed local / shifted-window attention does not consistently improve predictive performance
+- SWiM is materially weaker than the strongest existing panel baselines in cross-sectional ranking
+- fixed local receptive fields remain horizon dependent
+- Daily+Weekly fixed fusion is not automatically beneficial
+- at 20d, fixed D+W SWiM can collapse completely
+- therefore imposing a fixed local temporal scale is not sufficient
+- this strengthens the motivation for testing adaptive within-frequency multi-scale selection
+
+This does not prove PathFormer will work, or that adaptive routing is already validated.
+
+It also remains true that SWiM does not beat the naive point-forecast MSE benchmark in any of the 9 configurations.
+
+For D+W 20d, the numerical closeness to naive MSE results from collapse and should be interpreted accordingly.
+
+### Comparison caveat
+
+The SWiM development results are:
+
+- single nominal seed = 42
+- descriptive development-benchmark results
+- not a formal final paper result
+
+Formal multi-seed robustness has not yet been performed.
+
+Apple MPS is not bitwise deterministic even under a nominal fixed seed, as already observed in the Vanilla and SWiM development process.
+
+Therefore:
+
+- do not attach formal statistical significance to single-seed metric differences
+- do not call small Rank IC differences conclusive
+- overlapping 5d / 10d / 20d future-return targets induce serial dependence
+- later inference should use serial-dependence-aware methods such as HAC / Newey-West or a block bootstrap where appropriate
+
+---
+
 ## Current Assessment
 
 The current project status is now materially different from the earlier pre-freeze narrative.
 
 - FSLR full-frequency naive-fusion PathFormer remains a negative diagnostic result and should remain documented as such.
 - The active mainline is the frozen 17-stock Daily + Weekly panel on the shared sample index.
-- Shared panel infrastructure is stable: loader, split logic, train-only normalization, and cross-sectional Rank IC are all in place and used by Ridge, LSTM, and Vanilla Transformer.
+- Shared panel infrastructure is stable: loader, split logic, train-only normalization, and cross-sectional Rank IC are all in place and used by Ridge, LSTM, Vanilla Transformer, and SWiM.
 - Ridge ML baseline is complete and frozen with SVD.
 - LSTM DL baseline is complete as a single-seed development benchmark and its architecture/training protocol are frozen.
 - Vanilla Transformer is now complete as the generic self-attention control baseline under the same frozen panel protocol; its 9-configuration development benchmark is complete and frozen.
-- Vanilla is numerically stable for the frozen panel, but does not uniformly dominate LSTM or naive baselines across all frequencies and horizons.
-- Vanilla shows clear horizon-dependent frequency preference: Weekly is strongest at 5d ranking, Daily+Weekly is strongest at 10d, and Daily-only is strongest at 20d.
+- SWiM-style Transformer is complete as a single-seed development benchmark and its architecture/training protocol are frozen.
+- SWiM does not provide a consistent improvement over the existing panel controls; it remains a fixed-structure local-attention baseline whose 20d Daily+Weekly branch collapses to a near-constant prediction.
+- The panel methodological control ladder is now: Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer.
+- The control ladder is four-fifths complete before the formal PathFormer panel model.
+- Vanilla and SWiM both show horizon-dependent frequency preference, which reinforces the view that fixed temporal representations are not universally optimal.
 - Fixed Daily+Weekly fusion is useful at some horizons but not uniformly superior, which strengthens the motivation for structured multi-scale and adaptive scale-selection mechanisms.
-- Our panel methodological control ladder is: Ridge → nonlinear recurrence (LSTM) → generic self-attention control (Vanilla Transformer) → structured/windowed-attention Transformer (SWiM-style) → adaptive multi-scale Transformer (PathFormer).
+- This strengthens the motivation to test adaptive multi-scale selection without claiming the hypothesis is already proven.
 - This control ladder complements the advisor's literal experimental spine; it is not the advisor's literal Experiment 2.
 - The advisor's literal experimental spine is: Experiment 1 = FSLR diagnostic model comparison, Experiment 2 = panel frequency-configuration comparison, Experiment 3 = Daily+Weekly PathFormer mechanism ablation, Experiment 4 = robustness + interpretability.
-- The old statement that "panel-level ranking quality will be reported separately once Experiment 2 is run" is no longer correct; panel Rank IC is already being computed and reported for the Ridge, LSTM, and Vanilla baselines.
+- The old statement that "panel-level ranking quality will be reported separately once Experiment 2 is run" is no longer correct; panel Rank IC is already being computed and reported for the Ridge, LSTM, Vanilla, and SWiM baselines.
 
-For the historical FSLR late-fusion experiments, `concat` remains the safer default branch for interpretation and `gated` remains a secondary ablation. This does not pre-select the fusion mechanism for the formal panel PathFormer benchmark, which remains pending but is now downstream of the completed Vanilla control.
+For the historical FSLR late-fusion experiments, `concat` remains the safer default branch for interpretation and `gated` remains a secondary ablation. This does not pre-select the fusion mechanism for the formal panel PathFormer benchmark, which remains pending but is now downstream of the completed Vanilla and SWiM controls.
 
 Important caveat: overlapping future-return targets induce serial dependence within the panel sample. Descriptive ICIR and mean Rank IC should not be interpreted as formal statistical significance without the later multi-seed robustness and appropriate serial-dependence-aware inference step.
 
@@ -753,8 +1276,8 @@ This is directly aligned with the advisor's original statement that PathFormer a
    - Ridge: DONE / FROZEN
    - LSTM: DONE / FROZEN development benchmark
    - Vanilla Transformer control: DONE / FROZEN development control
-   - SWiM-style improved Transformer A: NEXT
-   - Adaptive Multi-Scale PathFormer improved Transformer B: PENDING AFTER SWiM
+   - SWiM-style improved Transformer A: DONE / FROZEN single-seed development benchmark
+   - Adaptive Multi-Scale PathFormer improved Transformer B: NEXT
 4. **PARTIALLY EXECUTABLE — Advisor Experiment 2 frequency comparison** on the panel architecture: Daily only, Weekly only, Daily + Weekly are current-data-supported; Hourly only, Half-Day only, Hourly + Daily, and All frequencies remain blocked on panel-wide intraday data.
 5. **PENDING — Experiment 3: Daily + Weekly PathFormer mechanism ablation** comparing single-scale vs fixed multi-scale vs static learned scale weight vs adaptive router.
 6. **PENDING — Experiment 4: 5-seed robustness and router interpretation** with mean ± std reporting and regime analysis.
@@ -772,6 +1295,7 @@ This roadmap separates the advisor's literal four-experiment spine from the addi
 - `scripts/python/panel_ridge_validation.py` — completed Ridge validation and naive comparison workflow.
 - `scripts/python/panel_ridge_solver_final_check.py` — completed final SVD solver confirmation.
 - `scripts/python/panel_baseline_lstm.py` — completed single-seed LSTM development benchmark for the panel.
+- `scripts/python/panel_baseline_swim.py` — completed single-seed SWiM development benchmark for the panel, with architecture and training protocol frozen.
 - `scripts/python/panel_adaptive_scale_experiment.py` — exploratory PathFormer-family prototype; not yet the formal panel main benchmark.
 
 Current implemented formal/development baselines:
@@ -780,10 +1304,10 @@ Current implemented formal/development baselines:
 - Ridge: DONE / FROZEN
 - LSTM: DONE / FROZEN development architecture/protocol
 - Vanilla Transformer: DONE / FROZEN development control
-- SWiM-style / windowed-attention Transformer: NEXT
+- SWiM-style / windowed-attention Transformer: DONE / FROZEN development benchmark
 - Late-Fusion PathFormer / adaptive multi-scale PathFormer: prototype exists, but formal benchmark version remains pending
 
-The current priority is to continue from the completed Ridge + LSTM + Vanilla control ladder toward the next benchmark model, the SWiM-style improved Transformer, while keeping the earlier FSLR diagnostic evidence as historical context.
+The current priority is now the formal panel Adaptive Multi-Scale PathFormer / improved Transformer B, using the completed Ridge, LSTM, Vanilla, and SWiM controls as the comparison ladder.
 
 ### FSLR Full-Frequency Case Study (A1–A7) as Historical Evidence
 
@@ -857,12 +1381,13 @@ Legend:
 - [Done] LSTM architecture and training protocol frozen for the development benchmark.
 - [Done] Vanilla Transformer panel development baseline implemented and run under the same frozen panel_common loader, split, normalization, targets, and metrics.
 - [Done] Vanilla Transformer 9-configuration nominal-seed-42 benchmark completed and frozen as the generic self-attention control.
-- [Pending] Port/build the SWiM-style improved Transformer panel baseline.
-- [Pending] Build the formal Adaptive Multi-Scale PathFormer panel baseline.
+- [Done] SWiM-style improved Transformer panel baseline implemented and run under the same frozen panel_common loader, split, normalization, targets, and metrics.
+- [Done] SWiM-style 9-configuration nominal-seed-42 benchmark completed and frozen as the structured local-attention control.
+- [Next] Build the formal Adaptive Multi-Scale PathFormer panel baseline.
 - [Pending] Complete the five-model / family single-seed comparison: Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer.
 - [Pending] Multi-seed robustness after architecture comparison and selection.
 
-The primary next action in Phase 2 is now to implement the SWiM-style improved Transformer on the same frozen panel backbone, while keeping the Vanilla Transformer as the completed control baseline.
+The primary next action in Phase 2 is now to implement the formal Adaptive Multi-Scale PathFormer panel backbone, using the completed Ridge, LSTM, Vanilla, and SWiM controls as the comparison ladder.
 
 ### Phase 2a — Foundation-First Build Plan
 
@@ -884,12 +1409,18 @@ Status update:
 - [Done] LSTM single-seed benchmark completed.
 - [Done] Vanilla Transformer implementation audit and validation completed.
 - [Done] Vanilla Transformer 9-configuration development benchmark completed.
+- [Done] SWiM implementation audit and architecture redesign completed.
+- [Done] SWiM correct shifted-window boundary masking implemented.
+- [Done] SWiM MPS execution debugging completed sufficiently to run the formal development benchmark.
+- [Done] SWiM 9-configuration nominal-seed-42 benchmark completed.
+- [Done] SWiM architecture/training protocol frozen.
 
 Final status line for this phase:
 
 - [Done] Ridge verification gate passed; deep-learning expansion authorized.
 - [Done] LSTM single-seed development benchmark passed its stability gate.
 - [Done] Vanilla Transformer development benchmark passed its control-benchmark gate.
+- [Done] SWiM development benchmark passed the execution gate, with one explicit model-output failure cell: Daily+Weekly / 20d constant collapse.
 
 ### Phase 3A — Panel Methodological / Architecture Controls — IN PROGRESS
 
@@ -900,11 +1431,11 @@ Completed model families:
 - [Done] Ridge × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 - [Done — single seed] LSTM × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 - [Done — single seed / full 9-config benchmark] Vanilla Transformer control × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Done — single seed / full 9-config benchmark] SWiM-style improved Transformer A × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
-Pending model families in order:
+Next model family in order:
 
-1. [Next] SWiM-style improved Transformer A × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
-2. [Pending] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+1. [Next] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
 Blocked / deferred:
 
@@ -913,13 +1444,16 @@ Blocked / deferred:
 
 Current evidence from the completed control benchmarks:
 
+- 5d SWiM best finite Rank IC: Weekly-only = 0.020262; Daily-only = -0.048280; Daily+Weekly = -0.024711
+- 10d SWiM best finite Rank IC: Daily-only = 0.020621; Weekly-only = -0.035014; Daily+Weekly = -0.014862
+- 20d SWiM has no positive finite Rank IC; Daily+Weekly collapses to a near-constant prediction
 - 5d best Rank IC: Weekly-only for Vanilla; Daily+Weekly for LSTM
 - 10d best Rank IC: Daily+Weekly for Vanilla and LSTM
 - 20d best Rank IC: Daily-only for Vanilla; Daily+Weekly for LSTM
 
-These results provide strong evidence that the preferred temporal representation is horizon-dependent rather than universally dominated by one frequency setting. This pattern motivates, but does not yet validate, adaptive multi-scale or adaptive frequency selection.
+These results provide strong evidence that the preferred temporal representation is architecture- and horizon-dependent rather than universally dominated by one frequency setting. This pattern motivates, but does not yet validate, adaptive multi-scale or adaptive frequency selection. The fixed local receptive field and fixed D+W fusion do not provide universal superiority, and the SWiM result adds another fixed-structure failure mode rather than a validated final-pattern solution.
 
-The Vanilla Transformer remains a control and does not satisfy one of the advisor-requested two improved-Transformer algorithm slots. It is an additional conventional-attention control, and the next formal step remains the SWiM-style improved Transformer.
+The Vanilla Transformer and SWiM are controls in the panel methodological ladder; neither satisfies the advisor's required improved-Transformer final slot on its own. The next formal step remains the Adaptive Multi-Scale PathFormer development benchmark.
 
 ### Experiment 2 — Panel Frequency-Configuration Comparison
 
@@ -1028,9 +1562,9 @@ Current status:
 - Ridge stable: PASS
 - LSTM stable: PASS as a single-seed development benchmark
 - Vanilla Transformer control: PASS as a frozen development benchmark
-- SWiM-style improved Transformer A: pending
-- Adaptive Multi-Scale PathFormer improved Transformer B: pending
-- Formal adaptive-router ablation / interpretation: wait until the model-family comparison is complete
+- SWiM-style improved Transformer A: PASS as a completed single-seed development benchmark, with the Daily+Weekly / 20d constant-collapse caveat
+- Adaptive Multi-Scale PathFormer improved Transformer B: pending / next
+- Formal adaptive-router ablation / interpretation: wait until the PathFormer model-family development benchmark is complete
 
 The gate is no longer: "Should we start deep models?"
 
@@ -1054,11 +1588,11 @@ It is now: "After Ridge, LSTM, the Vanilla control, the SWiM-style improved Tran
 3. [Done] Complete the LSTM single-seed development benchmark.
 4. [Done] Implement and validate the Vanilla Transformer control using the exact same `panel_common` loader, split, normalization, targets, and metrics.
 5. [Done] Run the Vanilla Transformer development benchmark on Daily / Weekly / Daily+Weekly × 5d / 10d / 20d, nominal seed=42.
-6. [Next] Port/build the SWiM-style improved Transformer A for the panel.
-7. [Pending] Run the SWiM-style panel comparison within the additional methodological control ladder.
-8. [Pending] Build the formal Adaptive Multi-Scale PathFormer panel model.
-9. [Pending] Run the Adaptive PathFormer main comparison within the additional methodological control ladder.
-10. [Pending] Complete the additional panel methodological control ladder across Ridge, LSTM, Vanilla Transformer, SWiM-style Transformer, and Adaptive PathFormer.
+6. [Done] Implement the panel SWiM-style improved Transformer A using the same frozen panel infrastructure.
+7. [Done] Run the SWiM-style panel 9-configuration development benchmark.
+8. [Next] Design / implement the formal Adaptive Multi-Scale PathFormer panel model.
+9. [Pending] Run the Adaptive PathFormer Daily / Weekly / Daily+Weekly × 5d / 10d / 20d development comparison.
+10. [Pending] Complete the five-family methodological control ladder across Ridge, LSTM, Vanilla Transformer, SWiM-style Transformer, and Adaptive PathFormer.
 11. [Pending] Execute the advisor-defined Experiment 2 frequency comparison on the current data-supported set: Daily only, Weekly only, Daily + Weekly.
 12. [Pending] Run the Advisor Experiment 3 Daily+Weekly PathFormer mechanism ablation: single / fixed / static / adaptive.
 13. [Pending] Run 5-seed robustness on the selected model family.
@@ -1075,8 +1609,8 @@ with status:
 - Ridge: DONE / FROZEN
 - LSTM: DONE / FROZEN development benchmark
 - Vanilla Transformer: DONE / FROZEN development control
-- SWiM-style panel Transformer: NEXT
-- Adaptive Multi-Scale PathFormer: PENDING AFTER SWiM
+- SWiM-style panel Transformer: DONE / FROZEN development benchmark
+- Adaptive Multi-Scale PathFormer: NEXT
 - Mechanism ablation: PENDING
 - Formal robustness: PENDING
 - Interpretability: PENDING
