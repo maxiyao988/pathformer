@@ -332,7 +332,7 @@ Relevant outputs:
    - 20d: Daily+Weekly
    for LSTM Rank IC.
 5. This is consistent with, but does not yet prove, the adaptive multi-scale hypothesis: a fixed temporal scale or frequency may not be optimal across all forecasting horizons and market states.
-6. The completed Vanilla Transformer control provides an additional check on whether the horizon-dependent temporal-frequency pattern persists under generic self-attention. The next analytical step is the SWiM-style improved Transformer under the same frozen panel protocol.
+6. The completed Vanilla Transformer control provides an additional check on whether the horizon-dependent temporal-frequency pattern persists under generic self-attention. SWiM has subsequently been completed under the same frozen panel protocol, and the next model-development step is the Adaptive Multi-Scale PathFormer.
 
 Do not claim profitable trading performance, causal effects, or universal superiority of Daily+Weekly or LSTM over naive forecasting.
 
@@ -1453,7 +1453,7 @@ Current evidence from the completed control benchmarks:
 
 These results provide strong evidence that the preferred temporal representation is architecture- and horizon-dependent rather than universally dominated by one frequency setting. This pattern motivates, but does not yet validate, adaptive multi-scale or adaptive frequency selection. The fixed local receptive field and fixed D+W fusion do not provide universal superiority, and the SWiM result adds another fixed-structure failure mode rather than a validated final-pattern solution.
 
-The Vanilla Transformer and SWiM are controls in the panel methodological ladder; neither satisfies the advisor's required improved-Transformer final slot on its own. The next formal step remains the Adaptive Multi-Scale PathFormer development benchmark.
+The Vanilla Transformer is a supplementary conventional-attention control; it does not occupy an advisor-requested improved-Transformer slot. SWiM-style Transformer is Improved Transformer A. Adaptive Multi-Scale PathFormer is Improved Transformer B / the proposed model. Adaptive PathFormer is the next formal model-development step.
 
 ### Experiment 2 — Panel Frequency-Configuration Comparison
 
@@ -1593,7 +1593,7 @@ It is now: "After Ridge, LSTM, the Vanilla control, the SWiM-style improved Tran
 8. [Next] Design / implement the formal Adaptive Multi-Scale PathFormer panel model.
 9. [Pending] Run the Adaptive PathFormer Daily / Weekly / Daily+Weekly × 5d / 10d / 20d development comparison.
 10. [Pending] Complete the five-family methodological control ladder across Ridge, LSTM, Vanilla Transformer, SWiM-style Transformer, and Adaptive PathFormer.
-11. [Pending] Execute the advisor-defined Experiment 2 frequency comparison on the current data-supported set: Daily only, Weekly only, Daily + Weekly.
+11. [Pending] Execute the advisor-defined Experiment 2 frequency comparison under the selected stable panel main-model framework. Daily-only, Weekly-only, and Daily+Weekly have already been exercised across Ridge / LSTM / Vanilla / SWiM methodological controls, but the formal advisor-defined frequency comparison remains to be finalized after the PathFormer development benchmark.
 12. [Pending] Run the Advisor Experiment 3 Daily+Weekly PathFormer mechanism ablation: single / fixed / static / adaptive.
 13. [Pending] Run 5-seed robustness on the selected model family.
 14. [Pending] Produce router / regime interpretation analysis.
