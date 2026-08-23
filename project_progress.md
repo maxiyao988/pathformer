@@ -880,7 +880,7 @@ These are not final scientific conclusions.
 ### Data and Pipeline
 
 - Multi-frequency data ingestion and cleaning completed.
-- Cross-frequency alignment audit completed with no leakage in retained samples.
+- A historical alignment audit was completed at the time; the later 2026-08-23 temporal-integrity audit superseded that leakage assessment.
 - Multi-scale dataset rebuilt and audited.
 - Lookback selection study completed; working window set (w_star):
   - hourly 24, halfday 20, daily 90, weekly 26
@@ -2280,11 +2280,11 @@ Legend:
 - [Done] Vanilla Transformer 9-configuration nominal-seed-42 benchmark completed and frozen as the generic self-attention control.
 - [Done] SWiM-style improved Transformer panel baseline implemented and run under the same frozen panel_common loader, split, normalization, targets, and metrics.
 - [Done] SWiM-style 9-configuration nominal-seed-42 benchmark completed and frozen as the structured local-attention control.
-- [Next] Build the formal Adaptive Multi-Scale PathFormer panel baseline.
-- [Pending] Complete the five-model / family single-seed comparison: Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer.
-- [Pending] Multi-seed robustness after architecture comparison and selection.
+- [Historical / PRE-TEMPORAL-FIX] Build the formal Adaptive Multi-Scale PathFormer panel baseline under the original temporal contract.
+- [Pending until V2 audit PASS] Complete the five-model / family single-seed comparison: Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer on the final repaired dataset.
+- [Pending until V2 audit PASS] Multi-seed robustness after architecture comparison and selection.
 
-The primary next action in Phase 2 is now to implement the formal Adaptive Multi-Scale PathFormer panel backbone, using the completed Ridge, LSTM, Vanilla, and SWiM controls as the comparison ladder.
+The Adaptive Multi-Scale PathFormer was the next model-development step under the PRE-TEMPORAL-FIX sequence, but all formal model work is now blocked until the final Dataset V2 passes the independent temporal audit.
 
 ### Phase 2a — Foundation-First Build Plan
 
@@ -2472,22 +2472,14 @@ It is now: "After the temporal repair passes the independent audit, and after th
 
 ## Immediate Execution Checklist (Most Urgent)
 
-1. [Current priority] Review the actual Git diff for the temporal repair:
-   - `git --no-pager diff -- scripts/python/panel_build_multiscale_dataset.py scripts/python/panel_common.py scripts/python/panel_verify_temporal_integrity.py`
-2. [Current priority] Correct any implementation / audit issues found in the diff review.
-3. [Current priority] Back up old dataset manifests and model outputs.
-4. [Current priority] Rebuild Dataset Contract V2.
-5. [Current priority] Run the full independent temporal-integrity audit.
-6. [Pending] Do not proceed unless the temporal audit passes.
-7. [Pending] Audit rebuilt sample counts and target distributions for 5d / 10d / 20d.
-8. [Pending] Run zero and train-mean baselines.
-9. [Pending] Re-run the formal Linear / Ridge baseline on the repaired dataset.
-10. [Pending] Re-run the panel benchmark controls required for final paper claims: LSTM, Vanilla Transformer, and SWiM on the same repaired dataset.
-11. [Pending] Re-run Adaptive PathFormer main frequency comparison: Daily, Weekly, Daily + Weekly across 5d / 10d / 20d.
-12. [Pending] Run the Daily+Weekly mechanism ablation: single / fixed / static / adaptive.
-13. [Pending] Run 5-seed robustness on the selected model family.
-14. [Pending] Produce router / regime interpretation analysis.
-15. [Pending] Finalize the panel-results writeup and the FSLR diagnostic section.
+1. [NEXT] Modify `scripts/python/panel_build_multiscale_dataset.py` so formal Weekly is deterministically aggregated from canonical Daily.
+2. [NEXT] Modify / extend `scripts/python/panel_verify_temporal_integrity.py` to validate the Weekly-from-Daily contract.
+3. [PENDING] Review the resulting builder / audit diff.
+4. [PENDING] Rebuild final Dataset V2.
+5. [PENDING] Run the independent audit and require `OVERALL: PASS`.
+6. [PENDING] Freeze final V2 counts / provenance.
+7. [PENDING] Re-run Zero / Train-Mean / Ridge / LSTM / Vanilla / SWiM / Adaptive PathFormer.
+8. [PENDING] Mechanism ablation, robustness, inference, interpretation.
 
 Current control ladder for historical documentation:
 
