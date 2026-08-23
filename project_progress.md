@@ -24,6 +24,46 @@ The active workflow is now:
 4. Run PathFormer main frequency comparison and mechanism ablation
 5. Robustness / inference / interpretation
 
+### MAIN V2 benchmark namespace (2026-08-23)
+
+Formal MAIN V2 benchmark outputs are written under:
+
+- `dataset/audit/main_v2/`
+- `dataset/audit/main_v2/naive/`
+- `dataset/audit/main_v2/ridge/`
+
+Benchmark status:
+
+- [DONE] Zero predictor MAIN V2
+- [DONE] Global Train-Mean predictor MAIN V2
+- [DONE] Ridge MAIN V2
+- [NEXT] LSTM MAIN V2
+- [PENDING] Vanilla Transformer MAIN V2
+- [PENDING] SWiM MAIN V2
+- [PENDING] Adaptive PathFormer MAIN V2
+
+Main V2 naive results on the accepted V2 panel:
+
+- Zero predictor MSE: 5d = 0.010018, 10d = 0.019296, 20d = 0.036703
+- Global train-mean predictor MSE: 5d = 0.0099996, 10d = 0.0192278, 20d = 0.0365213
+- Constant predictor Pearson correlation is mathematically undefined; no synthetic zero-correlation substitution was used.
+
+Main V2 Ridge results (best by Test MSE within each horizon):
+
+- 5d: weekly_only, MSE = 0.010779, Rank IC = -0.0140
+- 10d: daily_only, MSE = 0.020837, Rank IC = 0.0175
+- 20d: weekly_only, MSE = 0.041776, Rank IC = 0.0111
+
+Best Ridge Rank IC by horizon:
+
+- 5d: daily_weekly, mean Rank IC = 0.0160
+- 10d: daily_weekly, mean Rank IC = 0.0261
+- 20d: daily_weekly, mean Rank IC = 0.0264
+
+All Ridge cells remained under-dispersed relative to the target: PredStd / TrueStd ratios were all below 1.0, with the strongest dispersion in the 20d daily_weekly cell at 0.546.
+
+No LSTM / Vanilla Transformer / SWiM / PathFormer runs were executed in this stage, and all historical V1 outputs remain explicitly diagnostic-only and untouched.
+
 ---
 
 ## Current Mainline Objective
