@@ -31,55 +31,132 @@ Formal MAIN V2 benchmark outputs are written under:
 - `dataset/audit/main_v2/`
 - `dataset/audit/main_v2/naive/`
 - `dataset/audit/main_v2/ridge/`
+- `dataset/audit/main_v2/lstm/`
 
 Benchmark status:
 
 - [DONE] Zero predictor MAIN V2
 - [DONE] Global Train-Mean predictor MAIN V2
 - [DONE] Ridge MAIN V2
-- [IN PROGRESS] LSTM MAIN V2 under the accepted V2 panel and frozen dataset contract
+- [DONE] LSTM MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN
 - [PENDING] Vanilla Transformer MAIN V2
 - [PENDING] SWiM MAIN V2
 - [PENDING] Adaptive PathFormer MAIN V2
 
-Formal LSTM MAIN V2 status (verified partial run):
+Formal LSTM MAIN V2 status:
 
-- Output namespace: `dataset/audit/main_v2/lstm/`
-- Verified artifacts present: `panel_lstm_summary_metrics.csv`, `panel_lstm_rank_ic_by_date.csv`, `panel_lstm_test_predictions.csv`, `panel_lstm_training_history.csv`
-- Current verified run state: 5/9 formal V2 LSTM cells produced; the completed cells are daily_only 5d/10d/20d and weekly_only 5d/10d. The remaining weekly_only 20d and the daily_weekly cells are still pending.
-- This is not a final acceptance claim for the full LSTM sweep; the full 9-cell benchmark remains in progress and is not yet benchmark-complete.
+- Benchmark state: MAIN V2 / POST-TEMPORAL-FIX
+- Completion state: COMPLETE / FROZEN
+- nominal seed = 42
+- finalization completed successfully using:
 
-Current verified LSTM results on the accepted V2 panel:
+```bash
+python scripts/python/panel_baseline_lstm.py \
+  --output-dir dataset/audit/main_v2/lstm \
+  --finalize-only
+```
 
-- daily_only / 5d: test MSE = 0.0105253, mean Rank IC = 0.034257, PredStd/TrueStd = 0.2360
-- daily_only / 10d: test MSE = 0.0215425, mean Rank IC = 0.004469, PredStd/TrueStd = 0.3178
-- daily_only / 20d: test MSE = 0.0421456, mean Rank IC = 0.050117, PredStd/TrueStd = 0.3925
-- weekly_only / 5d: test MSE = 0.0104839, mean Rank IC = 0.008995, PredStd/TrueStd = 0.1929, no_extreme_scale_pathology = False
-- weekly_only / 10d: test MSE = 0.0214846, mean Rank IC = 0.010381, PredStd/TrueStd = 0.3469
+and printed:
 
-These measurements are part of the formal MAIN V2 panel benchmark, but they are not yet a full LSTM benchmark conclusion because the remaining cells are unexecuted.
+```text
+FINALIZE-ONLY complete:
+regenerated MAIN V2 LSTM comparison and summary artifacts
+without retraining.
+```
 
-Main V2 naive results on the accepted V2 panel:
+Formal evidence audit passed for the accepted raw artifacts:
 
-- Zero predictor MSE: 5d = 0.010018, 10d = 0.019296, 20d = 0.036703
-- Global train-mean predictor MSE: 5d = 0.0099996, 10d = 0.0192278, 20d = 0.0365213
-- Constant predictor Pearson correlation is mathematically undefined; no synthetic zero-correlation substitution was used.
+- Summary: 9 unique experiment cells; 3 frequencies × 3 horizons × seed 42
+- Predictions: 59,823 total rows; 6,647 per cell; 17 tickers per cell; 391 test anchor dates per cell; duplicate prediction keys = 0; y_true/y_pred finite = PASS
+- Rank IC: 3,519 total rows; 391 per cell; 17 tickers per date; duplicate keys = 0
+- Training history: 175 total epoch rows; all 9 cells present; duplicate epoch keys = 0; train_loss / val_loss finite; best_epoch equals minimum validation-loss epoch for all 9 cells; epochs_trained - best_epoch = 10 for all cells, consistent with early-stopping patience = 10
+- Cross-frequency: y_true is identical across Daily / Weekly / Daily+Weekly for the same horizon/ticker/date; Daily+Weekly prediction vectors are distinct from the corresponding single-frequency predictions.
 
-Main V2 Ridge results (best by Test MSE within each horizon):
+Independent metric recomputation:
 
-- 5d: weekly_only, MSE = 0.010779, Rank IC = -0.0140
-- 10d: daily_only, MSE = 0.020837, Rank IC = 0.0175
-- 20d: weekly_only, MSE = 0.041776, Rank IC = 0.0111
+- Rank IC was independently recomputed from raw predictions WITHOUT SciPy, using per-date pandas average ranks followed by Pearson correlation.
+- Maximum absolute discrepancy versus stored Rank IC: 9.7e-17.
+- Therefore the existing SciPy/NumPy environment warning does not appear to affect the stored Rank-IC results.
+- Pooled metrics were also independently recomputed from raw predictions and matched the stored summary to floating-point / CSV precision.
 
-Best Ridge Rank IC by horizon:
+Formal LSTM results on the accepted V2 panel:
 
-- 5d: daily_weekly, mean Rank IC = 0.0160
-- 10d: daily_weekly, mean Rank IC = 0.0261
-- 20d: daily_weekly, mean Rank IC = 0.0264
+- 5d Daily: MSE 0.0105253235; Rank IC 0.0342569323; PredStd/TrueStd 0.2359869
+- 5d Weekly: MSE 0.0104838582; Rank IC 0.0089946940; PredStd/TrueStd 0.1928587
+- 5d Daily+Weekly: MSE 0.0109663187; Rank IC -0.0209977693; PredStd/TrueStd 0.3051514
+- 10d Daily: MSE 0.0215424895; Rank IC 0.0044694348
+- 10d Weekly: MSE 0.0214846134; Rank IC 0.0103806228
+- 10d Daily+Weekly: MSE 0.0212522224; Rank IC 0.0154706384
+- 20d Daily: MSE 0.0421455987; Rank IC 0.0501165940
+- 20d Weekly: MSE 0.0427582115; Rank IC 0.0278258362
+- 20d Daily+Weekly: MSE 0.0403858200; Rank IC 0.0615064440
 
-All Ridge cells remained under-dispersed relative to the target: PredStd / TrueStd ratios were all below 1.0, with the strongest dispersion in the 20d daily_weekly cell at 0.546.
+Best LSTM MSE:
 
-No LSTM / Vanilla Transformer / SWiM / PathFormer runs were executed in this stage, and all historical V1 outputs remain explicitly diagnostic-only and untouched.
+- 5d = Weekly-only
+- 10d = Daily+Weekly
+- 20d = Daily+Weekly
+
+Best LSTM Rank IC:
+
+- 5d = Daily-only
+- 10d = Daily+Weekly
+- 20d = Daily+Weekly
+
+Aggregate formal comparison:
+
+- LSTM MSE beats same-frequency Ridge in 5/9 cells.
+- LSTM Rank IC beats same-frequency Ridge in 5/9 cells.
+- LSTM MSE beats best naive baseline in 0/9 cells.
+
+Best-LSTM MSE relative to Train-Mean:
+
+- 5d Weekly-only = 4.84% worse
+- 10d Daily+Weekly = 10.53% worse
+- 20d Daily+Weekly = 10.58% worse
+
+Interpretation:
+
+- LSTM extracts some nonlinear / cross-sectional ranking information, particularly at the 20d horizon and under Daily+Weekly fusion,
+- but does not outperform the simple Train-Mean baseline on absolute return-level MSE.
+
+Do not claim statistical significance or multi-seed robustness.
+
+Formal raw evidence hashes:
+
+- `panel_lstm_summary_metrics.csv`: `cbaf38bf04c3ae2d6944d5cbb8d908d4c70a035f7ea6596cee9d9ddb9de95335`
+- `panel_lstm_test_predictions.csv`: `3b3548d3abeef9d80cb37b1d592a2b0e369d96389f81f2bc37032ea255a75444`
+- `panel_lstm_rank_ic_by_date.csv`: `5972e55d63748213707a241e9519822a77f5bda27bdbb34f2476141e33a4a410`
+- `panel_lstm_training_history.csv`: `2bc74d67ecdd9b554a2486f8f799d7243077fc392691dcdf4782cb7dc9410a57`
+
+Dataset manifest SHA remains:
+
+- `fc6943db7b05aa47f18c39c61e4b3350014d55014816e9884a161be4e59fab0c`
+
+Finalization script SHA:
+
+- `00daa0fd55cbc81e4d9dda66e9ccd94b2c920608af4794d7c5c5d4a741d9b654`
+
+Training script SHA:
+
+- `NOT_CAPTURED`
+
+Next formal model stage:
+
+- Vanilla Transformer — MAIN V2 / POST-TEMPORAL-FIX
+
+The next model must use:
+
+- same frozen dataset
+- same 17 tickers
+- same 2563 common anchor dates
+- same Train/Validation/Test split
+- same normalization
+- same horizons
+- same Daily-only / Weekly-only / Daily+Weekly frequency comparison
+- isolated namespace: `dataset/audit/main_v2/vanilla/`
+
+Do not start or run Vanilla Transformer yet.
 
 ---
 
