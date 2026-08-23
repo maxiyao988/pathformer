@@ -711,24 +711,21 @@ Normalization:
 
 ---
 
-## Important: Dataset V2 Is Not Yet Formally Accepted
+## Important: Final Dataset V2 Implementation Is Implemented, But Full Rebuild Is Still Deferred
 
-Although the research-design decisions are largely frozen, the current Dataset V2 has not yet received an overall PASS.
-
-Why:
-
-- the current built V2 still includes provider-native Weekly values in the interim rebuild,
-- the builder must next be modified so Weekly is reconstructed from canonical Daily,
-- the independent audit must then be updated to validate the final Weekly-from-Daily contract.
+The research-design decisions are frozen, and the final Weekly-from-Daily Dataset Contract V2 implementation has now been written into the builder and the independent audit.
 
 Current status is therefore:
 
-- Dataset Contract design: FROZEN / READY TO IMPLEMENT
-- Final V2 implementation: PENDING
-- Final V2 empirical audit: PENDING
-- Formal model reruns: BLOCKED UNTIL AUDIT PASS
+- Dataset Contract design: FROZEN / IMPLEMENTED
+- Final V2 implementation: DONE (static code update only)
+- Final V2 empirical audit: IMPLEMENTED / STATIC VALIDATION PASS ONLY
+- Full dataset rebuild: PENDING / intentionally deferred
+- Formal model reruns: BLOCKED UNTIL FINAL V2 REBUILD + AUDIT PASS
 
-Do not describe the current dataset directory as final / frozen.
+This is a deliberate gate: the builder and audit now enforce canonical Daily + reconstructed Weekly semantics, but the project is explicitly not allowed to rebuild the full panel or train models until the final panel run is executed under the repaired contract.
+
+Do not describe the current dataset directory as final / frozen until the post-implementation rebuild and audit gate are completed.
 
 ---
 
@@ -747,17 +744,18 @@ Do not describe the current dataset directory as final / frozen.
 11. [DONE] Audit the `auto_adjust` semantics.
 12. [DONE] Run the Daily adjustment sensitivity analysis.
 13. [DONE] Decide the canonical Daily convention: yfinance 1d, `auto_adjust=True`.
-14. [NEXT] Modify the Dataset V2 builder so Weekly is deterministic Daily aggregation.
-15. [NEXT] Modify / extend the independent temporal audit to validate the final Weekly-from-Daily contract.
-16. [PENDING] Rebuild final Dataset V2.
-17. [PENDING] Run the independent temporal audit until OVERALL: PASS.
-18. [PENDING] Freeze final V2 counts / provenance.
-19. [PENDING] Rerun deployable naive baselines: Zero predictor and global Train-Mean predictor.
-20. [PENDING] Rerun Ridge.
-21. [PENDING] Rerun LSTM.
-22. [PENDING] Rerun Vanilla Transformer.
-23. [PENDING] Rerun SWiM-style Transformer.
-24. [PENDING] Rerun Adaptive PathFormer on Daily-only / Weekly-only / Daily+Weekly across 5d / 10d / 20d.
+14. [DONE] Modify the Dataset V2 builder so Weekly is deterministic Daily aggregation.
+15. [DONE] Modify / extend the independent temporal audit to validate the final Weekly-from-Daily contract.
+16. [DONE] Complete static smoke validation of the final builder/audit implementation.
+17. [PENDING] Rebuild final Dataset V2.
+18. [PENDING] Run the independent temporal audit until OVERALL: PASS.
+19. [PENDING] Freeze final V2 counts / provenance.
+20. [PENDING] Rerun deployable naive baselines: Zero predictor and global Train-Mean predictor.
+21. [PENDING] Rerun Ridge.
+22. [PENDING] Rerun LSTM.
+23. [PENDING] Rerun Vanilla Transformer.
+24. [PENDING] Rerun SWiM-style Transformer.
+25. [PENDING] Rerun Adaptive PathFormer on Daily-only / Weekly-only / Daily+Weekly across 5d / 10d / 20d.
 25. [PENDING] Run PathFormer mechanism ablation: Single / Fixed / Static / Adaptive.
 26. [PENDING] Run at least 5-seed robustness.
 27. [PENDING] Use HAC / Newey-West or block-bootstrap inference where appropriate.
