@@ -4,7 +4,7 @@
 
 ### Temporal Integrity Reset (2026-08-23)
 
-A formal temporal-integrity review identified three material issues in the old panel dataset contract. The project is therefore in a disciplined reset: repair the dataset contract, revalidate it independently, and then rerun the formal panel benchmarks before any final empirical conclusions are drawn.
+A formal temporal-integrity review identified three material issues in the old panel dataset contract. The project therefore entered a disciplined temporal-integrity reset. That reset is now complete: Dataset Contract V2 has been rebuilt, independently audited, accepted, and frozen. Formal MAIN V2 benchmarking is now in progress.
 
 This is not a cancellation of the research direction. The Adaptive Multi-Scale PathFormer architecture remains scientifically relevant, but the previous empirical panel results are not valid evidence under the repaired dataset contract.
 
@@ -13,17 +13,17 @@ Current authoritative status:
 - Dataset Contract V2 design: FROZEN / IMPLEMENTED / ACCEPTED
 - Final V2 implementation: COMPLETE
 - Final V2 empirical audit: PASS
-- Formal model reruns: IN PROGRESS
-- Zero / Train-Mean / Ridge / LSTM complete; Vanilla Transformer is the next formal model.
-- Old panel results: PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+- Formal MAIN V2 benchmark reruns: COMPLETE for Zero / Train-Mean / Ridge / LSTM
+- Vanilla Transformer MAIN V2: NEXT FORMAL MODEL
+- Historical panel results: PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 The active workflow is now:
 
-1. Final Dataset V2 rebuild and audit completed
-2. Freeze accepted panel counts / provenance / contract
-3. Re-run deployable baselines and formal panel benchmarks under the accepted V2 panel
-4. Run PathFormer main frequency comparison and mechanism ablation
-5. Robustness / inference / interpretation
+1. Dataset V2 accepted and frozen under the final audited contract
+2. Formal MAIN V2 benchmark evidence preserved under dataset/audit/main_v2/
+3. Proceed with the next formal model stage: Vanilla Transformer MAIN V2
+4. Preserve historical pre-fix outputs as superseded archival context only
+5. Continue with PathFormer main frequency comparison and mechanism ablation under the frozen V2 contract
 
 ### MAIN V2 benchmark namespace (2026-08-23)
 
@@ -40,7 +40,7 @@ Benchmark status:
 - [DONE] Global Train-Mean predictor MAIN V2
 - [DONE] Ridge MAIN V2
 - [DONE] LSTM MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN
-- [PENDING] Vanilla Transformer MAIN V2
+- [NEXT] Vanilla Transformer MAIN V2
 - [PENDING] SWiM MAIN V2
 - [PENDING] Adaptive PathFormer MAIN V2
 
@@ -2104,7 +2104,7 @@ and post-fix results should not be silently mixed with pre-fix results.
 
 ## Historical Pre-Temporal-Fix Assessment — Superseded
 
-This section reflects the project state before the 2026-08-23 temporal-integrity reset. It does not represent the current panel empirical status, which remains blocked until the final Dataset V2 passes the independent audit.
+This section reflects the project state before the 2026-08-23 temporal-integrity reset. It does not represent the current panel empirical status. At that historical checkpoint, formal benchmarking was still blocked pending the final Dataset V2 audit. That gate has since passed and this section is superseded by the MAIN V2 status at the top of the document.
 
 - FSLR full-frequency naive-fusion PathFormer remains a negative diagnostic result and should remain documented as such.
 - The active mainline is the frozen 17-stock Daily + Weekly panel on the shared sample index.
@@ -2363,7 +2363,7 @@ Current implemented formal/development baselines:
 - SWiM-style / windowed-attention Transformer: DONE / FROZEN development benchmark
 - Late-Fusion PathFormer / adaptive multi-scale PathFormer: prototype exists, but formal benchmark version remains pending
 
-The current priority is now the temporal repair and clean re-benchmark, not another round of adaptive PathFormer tuning. The pathformer implementation remains frozen as a code artifact, but the formal dataset and benchmark evidence must be repaired before any final empirical comparison is made.
+At that historical checkpoint, the priority was temporal repair and clean re-benchmarking. That stage has since completed and is superseded by the MAIN V2 roadmap at the top of this document.
 
 ### FSLR Full-Frequency Case Study (A1–A7) as Historical Evidence
 
@@ -2441,10 +2441,10 @@ Legend:
 - [Done] SWiM-style improved Transformer panel baseline implemented and run under the same frozen panel_common loader, split, normalization, targets, and metrics.
 - [Done] SWiM-style 9-configuration nominal-seed-42 benchmark completed and frozen as the structured local-attention control.
 - [Historical / PRE-TEMPORAL-FIX] Build the formal Adaptive Multi-Scale PathFormer panel baseline under the original temporal contract.
-- [Pending until V2 audit PASS] Complete the five-model / family single-seed comparison: Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer on the final repaired dataset.
-- [Pending until V2 audit PASS] Multi-seed robustness after architecture comparison and selection.
+- [Historical status at that time: Pending until V2 audit PASS] Complete the five-model / family single-seed comparison: Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer on the final repaired dataset.
+- [Historical status at that time: Pending until V2 audit PASS] Multi-seed robustness after architecture comparison and selection.
 
-The Adaptive Multi-Scale PathFormer was the next model-development step under the PRE-TEMPORAL-FIX sequence, but all formal model work is now blocked until the final Dataset V2 passes the independent temporal audit.
+The Adaptive Multi-Scale PathFormer was the next model-development step under the PRE-TEMPORAL-FIX sequence. At that historical checkpoint, formal model work was blocked pending the final Dataset V2 audit. That gate has since passed.
 
 ### Phase 2a — Foundation-First Build Plan
 
@@ -2479,7 +2479,7 @@ Final status line for this phase:
 - [Done] Vanilla Transformer development benchmark passed its control-benchmark gate.
 - [Done] SWiM development benchmark passed the execution gate, with one explicit model-output failure cell: Daily+Weekly / 20d constant collapse.
 
-### Phase 3A — Panel Methodological / Architecture Controls — PAUSED UNTIL DATASET V2 AUDIT PASSES
+### Historical Phase 3A — Panel Methodological / Architecture Controls — PAUSED AT THAT TIME / SUPERSEDED
 
 This is the additional model-control ladder used to attribute whether the observed temporal-frequency patterns are architecture-specific or persist across model families. It is not the advisor's literal Experiment 2.
 
@@ -2494,14 +2494,14 @@ These results are historic diagnostics only. They must be re-run on the repaired
 
 Next model family in order after the dataset repair:
 
-1. [Next after V2 pass] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+1. [Historical planned next step after V2 pass] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
 Blocked / deferred:
 
 - [Blocked on data] Hourly only, Half-Day only, Hourly + Daily, All frequencies
   - Requires a panel-wide intraday OHLCV source; the existing panel dataset is only Daily + Weekly under the current repaired data scope.
 
-Current evidence from the completed old control benchmarks is retained only as historical context. It should not be used to claim frequency superiority, weekly help, or Daily+Weekly complementarity until the cleaned V2 dataset passes the independent temporal audit.
+Current evidence from the completed old control benchmarks is retained only as historical context. It should not be used to claim frequency superiority, weekly help, or Daily+Weekly complementarity at that historical checkpoint, pending the Dataset V2 audit; that gate has since passed.
 
 ### Experiment 2 — Panel Frequency-Configuration Comparison
 
@@ -2699,14 +2699,14 @@ git --no-pager diff -- \
   scripts/python/panel_verify_temporal_integrity.py
 ```
 
-This was an earlier review step for the temporal-code diff, not the current authoritative next action.
+This was an earlier review step for the temporal-code diff and is retained only as historical context.
 
 Current authoritative next action:
 
-- modify the Dataset V2 builder so Weekly is deterministically aggregated from canonical Daily;
-- modify / extend the independent audit to validate the final Weekly-from-Daily contract;
-- review the code and rebuild final V2;
-- require OVERALL: PASS before any model reruns.
+- proceed with Vanilla Transformer MAIN V2 under the accepted Dataset V2 contract;
+- keep the formal MAIN V2 benchmark namespace frozen at dataset/audit/main_v2/;
+- preserve all historical pre-fix panel outputs as superseded archival evidence only;
+- continue the formal model ladder without reinterpreting pre-temporal-fix outputs.
 
 ---
 
