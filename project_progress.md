@@ -2,67 +2,85 @@
 
 ## Current Critical Status — 2026-08-23
 
-### Temporal Integrity Repair and Clean Re-Benchmark
+### Temporal Integrity Reset (2026-08-23)
 
-The project is currently PAUSED on further model tuning and formal PathFormer experiments because a temporal-integrity audit of the frozen panel uncovered important problems in the dataset information set. The main architecture work is not being discarded: the Adaptive Multi-Scale PathFormer implementation may remain frozen as a model implementation, but previous panel empirical results must be recomputed after the dataset repair.
+A formal temporal-integrity review identified three material issues in the old panel dataset contract. The project is therefore in a disciplined reset: repair the dataset contract, revalidate it independently, and then rerun the formal panel benchmarks before any final empirical conclusions are drawn.
 
-This is a methodological reset, not a cancellation of the core research direction.
+This is not a cancellation of the research direction. The Adaptive Multi-Scale PathFormer architecture remains scientifically relevant, but the previous empirical panel results are not valid evidence under the repaired dataset contract.
 
-- Model implementation status: largely complete / frozen for now
-- Dataset empirical validity status: old panel dataset requires repair
-- Formal empirical result status: old panel results invalidated for final research conclusions
-- Current priority: temporal-integrity repair -> audit -> clean re-benchmark
+Current authoritative status:
 
-The project is now explicitly in a dataset-repair phase before any new formal benchmark claim is made.
+- Dataset Contract V2 design: FROZEN / READY TO IMPLEMENT
+- Final V2 implementation: PENDING
+- Final V2 empirical audit: PENDING
+- Formal model reruns: BLOCKED UNTIL AUDIT PASS
+- Old panel results: PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+
+The active workflow is now:
+
+1. Repair/Finalize Dataset Contract V2
+2. Independent temporal audit PASS
+3. Rebuild/verify final panel sample universe and counts
+4. Rerun deployable baselines and formal panel benchmarks
+5. Run PathFormer main frequency comparison and mechanism ablation
+6. Robustness / inference / interpretation
+
+---
+
+## Current Mainline Objective
+
+The immediate project priority is no longer continued tuning on historical panel outputs. The project is now explicitly focused on:
+
+- repairing the old panel dataset information-set contract,
+- sealing the old V1 artifacts as historical snapshots,
+- rebuilding the corrected V2 panel,
+- independently auditing the V2 temporal semantics,
+- then rerunning all formal panel benchmarks.
+
+The architecture remains valid, but previous panel benchmark results are invalid as final evidence because the data contract changed.
+
+---
 
 ## Scope (Current Active Track)
 
-**FROZEN PANEL DECISION (2026-08-16):** **Primary panel = the 17-stock balanced Daily + Weekly panel, common period 2016-01-25 to 2026-06-05** (`AES, BEP, BLDP, BLNK, CSIQ, CWEN, DQ, ENPH, FCEL, FSLR, HASI, JKS, NEE, ORA, PLUG, RUN, SEDG` — see `panel_candidate_universe_summary.csv`, `n_tickers=17` row). This is the universe all Phase 2+ modeling (Ridge/LSTM/Transformer/PathFormer, Experiment 2/3/4) targets. **The full 24-stock universe is NOT deleted** — it remains in `panel_universe.GREEN_ENERGY_UNIVERSE` and the built dataset under `dataset/multiscale_dataset/panel/`, retained explicitly as a future robustness / unbalanced-panel extension, not as the primary experiment.
+Formal panel universe (current design):
 
-**Pre-freeze verification (ran 2026-08-16, PASSED):** `scripts/python/panel_verify_17stock_sample_index.py` confirmed that for the 17-stock panel's train split, Daily-only, Weekly-only, and Daily+Weekly settings all resolve to the exact same 31,008-sample `(ticker, anchor_date)` index (not just by construction — checked empirically via non-NaN/non-Inf masks on `X_daily`/`X_weekly`). This was the required sanity gate before freezing the panel choice.
+- AES
+- BEP
+- BLDP
+- BLNK
+- CSIQ
+- CWEN
+- DQ
+- ENPH
+- FCEL
+- FSLR
+- HASI
+- JKS
+- NEE
+- ORA
+- PLUG
+- RUN
+- SEDG
 
-**Current active track (2026-08-16, supersedes all wording below that implies a 4-frequency panel):** the active research track is a **Daily + Weekly multi-stock panel** with frequency-specific encoders, late fusion, and an optional per-frequency adaptive scale router. This is a deliberate scope reduction from the earlier "20–50 tickers x Hourly/Half-Day/Daily/Weekly" framing, driven by a verified data constraint: panel-wide Hourly/Half-Day OHLCV does not exist yet (see Experiment 2's data-availability note below). **FSLR is retained as a single-stock, full-frequency (Hourly/Half-Day/Daily/Weekly) case-study / diagnostic model-comparison track.** It provides both the advisor-requested Experiment-1 model-comparison setting (one ML model, one DL model, two improved Transformer algorithms) and the diagnostic evidence showing why naive full-frequency fusion is not a viable panel blueprint. It is not the main panel proving ground or the final router-interpretability setting.
+This is the formal 17-stock balanced Daily + Weekly panel retained for the main empirical track. The broader 24-stock universe remains as a retained extension / future robustness path, but it is not the active project mainline.
 
-Project focus was single-stock, multi-scale, single-modality modeling on FSLR using PathFormer-style time-series baselines. This FSLR-only setup is preserved as the case-study / diagnostic model-comparison track that motivates the stable panel design, not as the main panel experimental subject going forward.
+The research design remains consistent with the advisor-aligned structure:
 
-- Ticker: FSLR
-- Usable aligned sample period: 2011-11-02 to 2026-05-07
-- Raw coverage differs by frequency; see dataset artifacts for exact start/end dates.
-- Data source: Yahoo Finance and Bloomberg
-- Frequencies: hourly, halfday, daily, weekly
-- Features: OHLCV-derived arrays in multi-scale windows
-- Targets: future log return at 5d / 10d / 20d
-- Split protocol: 70% train / 15% val / 15% test (time-ordered)
+- Experiment 1: FSLR diagnostic / case-study track
+- Experiment 2: panel frequency comparison
+- Experiment 3: Daily + Weekly PathFormer mechanism ablation
+- Experiment 4: robustness + interpretation
 
----
-
-## Current Objective
-
-The immediate project priority has changed from continuing Adaptive PathFormer benchmarking / ablation to repairing and independently auditing the panel dataset temporal information-set contract, then re-running the formal benchmarks on the clean dataset.
-
-The architecture remains scientifically relevant, but the current objective is no longer to interpret old panel model numbers as final evidence. The model implementation can remain frozen while the data contract is repaired and audited.
-
-Primary scripts (historical reference, retained for debugging context):
-
-- scripts/python/task8_baseline_pathformer.py
-- scripts/python/task8_baseline_pathformer_latefusion.py
-- scripts/python/task8_pathformer_multiseed_robustness.py
-
-Primary outputs (historical reference, retained for debugging context):
-
-- dataset/audit/task8_latefusion_seed0.csv
-- dataset/audit/task8_latefusion_seed1.csv
-- dataset/audit/task8_latefusion_seed21.csv
-- dataset/audit/task8_latefusion_seed42.csv
-- dataset/audit/task8_latefusion_seed3407.csv
+The formal panel mainline is Daily + Weekly, with frequency-specific encoders and late fusion; the router remains within frequency branches rather than a global Daily-vs-Weekly frequency router.
 
 ---
 
-## Temporal Integrity Repair: Three Critical Issues
+## Temporal Integrity Reset — Three Critical Issues
 
-### A. Daily information set
+### Issue 1 — Daily information-set definition
 
-The old builder used a daily lookback approximately equivalent to:
+Old construction:
 
 ```python
 daily.iloc[i - H_DAILY:i]
@@ -74,110 +92,774 @@ with anchor:
 D = daily.iloc[i]
 ```
 
-Therefore the Daily feature window ended at `D-1` while the target was:
+This used:
+
+- D-90 ... D-1
+
+while the target began at:
 
 ```python
 y_h(D) = log(Close[D+h] / Close[D])
 ```
 
-This is not future leakage in the strict target sense, but it does not match the intended research information set. The final intended contract is that, at close of `D`, the model uses the latest 90 Daily OHLCV bars including `D` itself, i.e. `D-89, ..., D`, and therefore `daily_feature_end == anchor_date`.
+This was NOT ordinary future leakage in the strict target-sense, but it did not match the intended information set. The final intended Daily contract is that the model uses the latest 90 Daily OHLCV bars including the anchor date itself:
 
-### B. Weekly week-start timestamp leakage
+- D-89 ... D
 
-This is a real look-ahead problem.
+with:
 
-Empirical checks on stocks including `AES`, `FSLR`, `ENPH`, and `NEE` showed that the provider's Weekly timestamp represents the START of the week. For example, a Weekly row timestamped Monday can still contain OHLCV information from the full trading week through the final trading day of that week.
+```python
+daily_feature_end == anchor_date
+```
 
-The old builder selected:
+### Issue 2 — Provider Weekly timestamp / information availability
+
+Provider-native Weekly rows are labeled by week start (e.g. Monday), but the row can still contain OHLCV information from the full trading week through the final trading day in that week.
+
+The old builder selected Weekly rows using:
 
 ```python
 weekly["datetime"] <= anchor_date
 ```
 
-which incorrectly allowed an incomplete current weekly bar to enter the feature set before the week had finished.
+This could allow a Tuesday anchor to use a Monday-labeled Weekly row containing information from later in the same week. That was genuine feature look-ahead.
 
-Therefore old `weekly_only` and `daily_weekly` panel experiments contained temporal feature leakage. The corrected contract is:
-
-For each weekly bar with provider timestamp `weekly_bar_start`, derive `weekly_available_date` from the actual daily trading observations represented by that bar:
+The corrected rule is:
 
 ```python
-week_start <= daily_date < week_start + 7 calendar days
+weekly_available_date = last actual Daily trading date represented in the week
 ```
 
-and set:
+and a Weekly bar may be used only when:
 
 ```python
-weekly_available_date = max(actual represented daily trading date)
+weekly_available_date <= anchor_date
 ```
 
-At anchor `D`, a Weekly bar can only be used when:
+This replaces any Friday hard-coding and correctly handles holidays and shortened weeks.
+
+### Issue 3 — Target labels crossed split boundaries
+
+The old split was based only on anchor dates. Because returns are forward-looking, labels near the end of Train and Validation could extend into the next split.
+
+The corrected rule is a common purge over the retained anchor universe:
+
+```python
+MAX_HORIZON = 20
+```
+
+Remove:
+
+- final 20 common Train anchor dates
+- final 20 common Validation anchor dates
+
+Keep Test terminal and unpurged.
+
+Use ONE common retained anchor universe for 5d / 10d / 20d. This is label-boundary overlap / purging, not ordinary feature leakage.
+
+---
+
+## ALL OLD PANEL EMPIRICAL RESULTS ARE PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+
+ALL panel empirical results generated before the temporal/data-contract fix are now explicitly classified as:
+
+- PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+
+These results must not be used as final thesis / paper evidence.
+
+This includes prior panel outputs for:
+
+- Naive / constant baselines
+- Ridge
+- LSTM
+- Vanilla Transformer
+- SWiM-style Transformer
+- Adaptive Multi-Scale PathFormer
+
+Historical metrics remain in the project record for debugging and context, but they are not valid for formal conclusions. The architecture and implementations themselves may remain frozen or development-complete, but the old empirical panel benchmarks are invalid because the underlying panel dataset contract changed.
+
+---
+
+## V1 Backup / Provenance
+
+The old dataset was sealed as a historical snapshot before the V2 rebuild.
+
+Backup location:
+
+- `dataset/audit/pre_temporal_fix_v1/`
+
+Status:
+
+- VERIFIED / SEALED HISTORICAL SNAPSHOT
+
+Verification facts:
+
+- backup size ≈ 292M
+- formal ticker snapshot count = 17
+- formal metadata count = 17
+- SHA-256 checks matched for sampled provenance files including:
+  - `panel_build_manifest.csv`
+  - `FSLR/meta.csv`
+
+Contents include:
+
+- manifest
+- 17 ticker metadata copies
+- complete 17-ticker panel snapshot
+- old panel result outputs
+- README / inventory
+
+The V1 backup must remain read-only.
+
+---
+
+## First V2 Rebuild / Interim Temporal Audit
+
+The first corrected V2 rebuild completed successfully using:
+
+```bash
+python scripts/python/panel_build_multiscale_dataset.py
+```
+
+Build status:
+
+- SUCCESS
+
+Built directory size:
+
+- ≈231M
+
+The rebuild generated broader 24-ticker green-energy directories, but the formal panel loader retained the intended 17-stock formal universe:
+
+- AES
+- BEP
+- BLDP
+- BLNK
+- CSIQ
+- CWEN
+- DQ
+- ENPH
+- FCEL
+- FSLR
+- HASI
+- JKS
+- NEE
+- ORA
+- PLUG
+- RUN
+- SEDG
+
+Interim temporal audit result:
+
+- Daily Window Integrity: PASS
+- Weekly Availability / Look-Ahead: PASS
+- Target Date and Value Integrity: PASS
+- Split Purging: PASS
+- Panel Consistency: PASS
+- Weekly Raw-Data Semantics: FAIL
+
+Overall result:
+
+- FAIL
+
+This failure was NOT due to Weekly future leakage remaining in the panel. Weekly availability itself passed with zero violations. The remaining issue concerned value semantics between provider-native Weekly bars and Weekly OHLCV reconstructed from canonical Daily data.
+
+---
+
+## Current Retained Formal Panel Counts (Interim V2)
+
+These are the current interim V2 counts, not guaranteed final post-Weekly-reconstruction counts.
+
+Formal retained panel:
+
+- total samples = 43,571
+
+Common dates:
+
+- Original Train: 1822 dates, 2016-01-29 → 2023-04-25
+- Retained Train: 1802 dates, 2016-01-29 → 2023-03-27
+- Original Validation: 390 dates, 2023-04-26 → 2024-11-11
+- Retained Validation: 370 dates, 2023-04-26 → 2024-10-14
+- Original Test: 391 dates, 2024-11-12 → 2026-06-05
+- Retained Test: 391 dates, unchanged
+
+All split-boundary crossing counts were zero:
+
+- Train crossing 5d = 0
+- Train crossing 10d = 0
+- Train crossing 20d = 0
+- Val crossing 5d = 0
+- Val crossing 10d = 0
+- Val crossing 20d = 0
+
+These counts were produced by the interim V2 using provider-native Weekly values and may shift slightly after the final Weekly-from-Daily rebuild.
+
+---
+
+## Weekly Raw-Semantics Forensic Investigation
+
+The dedicated diagnostic script was:
+
+- `scripts/python/diagnose_weekly_raw_semantics.py`
+
+It produced:
+
+- `dataset/audit/weekly_raw_semantics_diagnostic.csv`
+- `dataset/audit/weekly_raw_semantics_by_ticker.csv`
+- `dataset/audit/weekly_raw_semantics_by_period.csv`
+- `dataset/audit/weekly_raw_semantics_summary.txt`
+
+Raw provider provenance:
+
+Daily was downloaded with:
+
+```python
+yf.download(
+    ticker,
+    period="max",
+    interval="1d",
+    auto_adjust=True,
+    progress=False,
+)
+```
+
+Weekly was downloaded separately with:
+
+```python
+yf.download(
+    ticker,
+    period="max",
+    interval="1wk",
+    auto_adjust=True,
+    progress=False,
+)
+```
+
+Therefore the provider-native Weekly series was not constructed from the saved canonical Daily data.
+
+Installed yfinance version during the audit:
+
+- 1.2.0
+
+Observed relevant defaults:
+
+- `actions=False`
+- `back_adjust=False`
+- `repair=False`
+
+The saved raw panel files retained only:
+
+- `datetime`
+- `open`
+- `high`
+- `low`
+- `close`
+- `volume`
+
+No explicit:
+
+- `Adj Close`
+- `Dividends`
+- `Stock Splits`
+
+were preserved in the existing panel raw series.
+
+---
+
+## Weekly Forensic Results
+
+Total Weekly rows analyzed:
+
+- 19,361
+
+Exact Weekly-vs-Daily aggregation matches:
+
+- 18,991
+- 98.09%
+
+OHLC mismatch Weekly rows:
+
+- 370
+- 1.91%
+
+Volume mismatch rows:
+
+- 17
+- 0.09%
+
+Field-level OHLC mismatches:
+
+- Open = 368
+- High = 250
+- Low = 206
+- Close = 0
+
+This is a key result: provider Weekly Close was systematically consistent with Daily-aggregated Close, while Open / High / Low differed in the mismatching rows.
+
+The earlier common-scale reporting was misleading. The actual common-scale OHLC mismatch rows were:
+
+- 2 / 370
+
+The corrected formal relevance check showed:
+
+- exact formal 26-week window reconstruction: 201 Weekly bars were mismatched and used by the formal panel
+- earliest weekly `week_start` actually used in the formal V2 panel: 2015-08-03
+
+Formal-used mismatch counts by ticker:
+
+- AES = 37
+- BEP = 37
+- CWEN = 29
+- HASI = 29
+- JKS = 3
+- NEE = 33
+- ORA = 33
+
+Important: the earlier diagnostic statement that all 370 mismatches could enter the formal panel and that the earliest used week was 1973 was a DIAGNOSTIC BUG and has been corrected.
+
+---
+
+## Weekly Source Decision — Now Selected
+
+### FINAL / SELECTED WEEKLY SOURCE DESIGN
+
+Do NOT use provider-native:
+
+- `interval="1wk"`
+
+for formal model inputs.
+
+Instead, construct Weekly deterministically from the canonical Daily OHLCV series. For each calendar week:
+
+- Weekly Open = first Daily Open
+- Weekly High = max Daily High
+- Weekly Low = min Daily Low
+- Weekly Close = last Daily Close
+- Weekly Volume = sum Daily Volume
+
+Define:
+
+```python
+weekly_available_date = last actual Daily trading date represented in that week
+```
+
+At anchor D, usable Weekly bars satisfy:
 
 ```python
 weekly_available_date <= D
 ```
 
-This avoids hard-coding Friday and correctly handles holidays and shortened trading weeks. Metadata must preserve both `weekly_bar_start` and `weekly_available_date`.
+Use:
 
-### C. Future-label split-boundary overlap
+- latest 26 completed Weekly bars
 
-The previous chronological split was based only on anchor dates. Because targets are forward returns, the final training/validation anchors have labels whose future price dates enter the next split.
+This does not reduce the formal sample frequency to weekly. Formal samples remain DAILY-anchor samples. Weekly information refreshes once per completed week.
 
-Observed old crossing counts were:
+Therefore Daily-only / Weekly-only / Daily+Weekly continue to share the same `(ticker, anchor_date)` formal sample universe.
 
-- 5d: train crossing = 85 = 17 stocks * 5 dates; val crossing = 85
-- 10d: train crossing = 170 = 17 stocks * 10 dates; val crossing = 170
-- 20d: train crossing = 340 = 17 stocks * 20 dates; val crossing = 340
-
-This is best described as label-boundary overlap / purging, not ordinary feature leakage.
-
-The new split contract uses ONE COMMON PURGED ANCHOR UNIVERSE across all 5d/10d/20d horizons. With `MAX_HORIZON = 20`, purge the final 20 common anchor dates from TRAIN and the final 20 common anchor dates from VALIDATION, leaving TEST terminal and unpurged. The purpose is to ensure all horizons share the same retained `(ticker, anchor_date)` universe while no train/validation future target enters the next split.
+Scientific motivation: using one canonical Daily source for both Daily and Weekly representations isolates temporal frequency / temporal scale rather than confounding frequency with provider interval-specific adjustment semantics.
 
 ---
 
-## Final Intended Dataset Contract
+## Auto-Adjust Investigation
 
-For every retained sample:
+A separate Daily price-convention investigation was completed.
 
-- Anchor: `D = close of the anchor trading date`
-- Daily input: last 90 Daily OHLCV observations including `D`, i.e. `D-89 ... D`; `daily_feature_end == D`
-- Weekly input: last 26 completed Weekly OHLCV bars only, with `weekly_available_date <= D`
-- Target: `y_h(D) = log(Close[D+h] / Close[D])`, `h in {5, 10, 20}` trading observations
-- Split: chronological 17-stock common-date panel; purge final 20 common anchor dates from train and validation; test remains terminal and unpurged
+The raw Daily data were downloaded with:
 
-The target construction is not being changed. The forward log-return formula has already been audited and remains correct; the fix is in the information set and split validity, not the target definition itself.
+```python
+auto_adjust=True
+```
+
+The local yfinance adjusted-OHLC logic was inspected. This established that adjusted OHLC is derived using an adjustment ratio related to:
+
+- `Adj Close / Close`
+
+The key methodological distinction is that changing `auto_adjust=True` to `auto_adjust=False` is not just a data-cleaning choice: it changes the economic meaning of the target.
+
+The current target:
+
+```python
+y_h(D) = log(Close[D+h] / Close[D])
+```
+
+under `auto_adjust=True` should be described as:
+
+- forward adjusted-price log return
+- or cautiously: dividend- and split-adjusted / total-return-like equity return
+
+rather than pure raw-price return.
+
+---
+
+## Daily Adjustment Sensitivity Audit
+
+The dedicated diagnostic was:
+
+- `scripts/python/diagnose_daily_adjustment_sensitivity.py`
+
+This was DIAGNOSTIC ONLY and did not:
+
+- rebuild data
+- alter raw CSVs
+- modify frozen code
+- train models
+
+The comparison was:
+
+A. `interval="1d"`, `auto_adjust=True`
+
+B. `interval="1d"`, `auto_adjust=False`, `actions=True`
+
+The diagnostic used the actual retained formal panel anchors and reproduced the existing train-only normalization logic.
+
+Key findings:
+
+- AES: ~100% non-unit `AdjClose/Close` ratio dates; median `|ratio - 1|` ≈ 0.377
+- BEP: ~99.5% non-unit; median `|ratio - 1|` ≈ 0.397
+- NEE: ~99.8% non-unit; median `|ratio - 1|` ≈ 0.573
+- ORA: ~100% non-unit; median `|ratio - 1|` ≈ 0.075
+
+Formal 90-day windows:
+
+- effectively constant adjustment-ratio windows = 28,044
+- adjustment ratio changes inside window = 15,527
+
+Normalized-feature sensitivity under the actual existing normalization:
+
+- Max absolute normalized difference:
+  - p50 = 0.00000000
+  - p90 = 0.24277201
+  - p95 = 0.43446768
+  - p99 = 0.71394871
+  - max = 1.09281248
+- Mean absolute normalized difference:
+  - p50 = 0.00000000
+  - p90 = 0.12135357
+  - p95 = 0.31501018
+  - p99 = 0.52463290
+  - max = 0.79564100
+- RMSE normalized difference:
+  - p50 = 0.00000000
+  - p90 = 0.14079998
+  - p95 = 0.35281325
+  - p99 = 0.58735475
+  - max = 0.89019328
+
+Target sensitivity diagnostic:
+
+- Mean absolute adjusted-vs-price target difference:
+  - 5d ≈ 0.000154
+  - 10d ≈ 0.000396
+  - 20d ≈ 0.000788
+- Maximum absolute difference:
+  - 5d ≈ 0.077679
+  - 10d ≈ 0.077679
+  - 20d ≈ 0.080386
+
+The diagnostic observed:
+
+- 4,492 target intervals containing dividend events
+- 108 target intervals containing stock-split events
+
+Important reporting caveat: the temporary target-sensitivity diagnostic used different usable denominators across 5d / 10d / 20d due to temporary download/date-alignment availability. Therefore the reported 40.6–40.8% “target differs” percentages are DIAGNOSTIC ONLY and should not be used as formal thesis statistics unless the alignment is explicitly repaired and verified.
 
 ---
 
-## Metadata / Independent Audit Contract
+## Final Daily Price-Convention Decision
 
-Rebuilt per-sample metadata should contain at minimum:
+Current research-design decision:
 
-- `anchor_date`
-- `daily_feature_end`
-- `weekly_bar_start`
-- `weekly_available_date`
-- `target_date_5d`
-- `target_date_10d`
-- `target_date_20d`
+- RETAIN `auto_adjust=True` for the canonical Daily series.
 
-The required audit script is:
+Reason:
 
-- `scripts/python/panel_verify_temporal_integrity.py`
+The research objective is stock/equity return prediction, not specifically capital-price appreciation excluding distributions. Therefore the preferred target is:
 
-Required checks:
+```python
+forward adjusted-price log return
+```
 
-1. Daily: `daily_feature_end == anchor_date`; expected violations = 0
-2. Weekly: `weekly_available_date <= anchor_date`, `weekly_available_date >= weekly_bar_start`; expected violations = 0
-3. Target chronology: `target_date_h > anchor_date` for `h = 5, 10, 20`; expected violations = 0
-4. Split-boundary purge: retained train targets do not enter validation; retained validation targets do not enter test; expected crossings = 0
-5. Panel consistency: exactly 17 tickers; no duplicate `(ticker, anchor_date)`; no NaN / Inf; `X_daily`, `X_weekly`, `y_5d`, `y_10d`, `y_20d`, and metadata lengths agree; same sample universe across frequency settings; train < validation < test chronologically
-6. Independent target recomputation: reload raw daily data, find anchor row index `i`, independently verify `expected_target_date = daily.iloc[i+h].date` and `expected_y = log(Close[i+h] / Close[i])`; compare both stored target date and stored target values, without trusting metadata produced by the same builder
-7. Independent Daily-window recomputation: randomly sample observations, reload raw daily data, reconstruct the expected 90-row window `i-89 ... i`, and compare to stored `X_daily`
-8. Independent Weekly recomputation: use raw Daily rows satisfying `week_start <= daily_date < week_start + 7 calendar days` and reconstruct `Open = first Open`, `High = max High`, `Low = min Low`, `Close = last Close`, `Volume = sum Volume`; verify stored Weekly bar values and `weekly_available_date == final actual represented trading date`
+rather than an ex-dividend mechanical price-only return.
 
-The audit must be independent rather than merely checking builder-generated metadata against itself.
+The sensitivity audit did not demonstrate a sufficiently material exploitable future-information mechanism that requires abandoning `auto_adjust=True`.
+
+Retrospective adjustment alone is not automatically equivalent to usable look-ahead leakage.
+
+The current normalizer remains:
+
+- per ticker
+- per frequency
+- per feature
+- fit on TRAIN only
+
+with:
+
+```python
+X_norm = (X - train_mean) / train_std
+```
+
+This reduces sensitivity to common multiplicative rescaling and remains compatible with the panel design.
+
+Final canonical source decision:
+
+- Daily: yfinance `interval="1d"`, `auto_adjust=True`
+- Weekly: deterministically aggregate from the same canonical Daily series
+- Target: `log(adjusted Close[D+h] / adjusted Close[D])`
+
+Use the terminology:
+
+- forward adjusted-price log return
+
+Do not call ordinary `auto_adjust=False` Yahoo Close a “fully raw traded price” without explicit evidence.
 
 ---
+
+## Final Dataset Contract V2 — Current Target Specification
+
+### Universe
+
+Formal 17 stocks:
+
+- AES, BEP, BLDP, BLNK, CSIQ, CWEN, DQ, ENPH, FCEL, FSLR, HASI, JKS, NEE, ORA, PLUG, RUN, SEDG
+
+### Canonical Daily data
+
+Provider:
+
+- yfinance
+
+Interval:
+
+- 1d
+
+Price convention:
+
+- `auto_adjust=True`
+
+Features:
+
+- open
+- high
+- low
+- close
+- volume
+
+Daily window:
+
+- 90 Daily trading observations including anchor D
+
+### Weekly data
+
+No provider-native 1wk formal input is used.
+
+Weekly is constructed deterministically from the canonical Daily series:
+
+- first Open
+- max High
+- min Low
+- last Close
+- summed Volume
+
+Weekly availability:
+
+- actual final trading date represented in the week
+
+Weekly input window:
+
+- latest 26 completed Weekly bars
+
+### Sample anchor
+
+Daily trading date D.
+
+All frequency settings use the same formal `(ticker, anchor_date)` sample universe.
+
+### Target
+
+For h in {5, 10, 20}:
+
+```python
+y_h(D) = log(Close[D+h] / Close[D])
+```
+
+where Close uses the canonical `auto_adjust=True` Daily series and D+h means future DAILY trading observations.
+
+Recommended description:
+
+- forward adjusted-price log return
+
+### Split / purge
+
+One common chronological panel split.
+
+Purge:
+
+- final 20 common Train anchor dates
+- final 20 common Validation anchor dates
+
+Test:
+
+- terminal / unpurged
+
+Normalization:
+
+- per ticker
+- per frequency
+- per feature
+- fit on Train only
+
+---
+
+## Important: Dataset V2 Is Not Yet Formally Accepted
+
+Although the research-design decisions are largely frozen, the current Dataset V2 has not yet received an overall PASS.
+
+Why:
+
+- the current built V2 still includes provider-native Weekly values in the interim rebuild,
+- the builder must next be modified so Weekly is reconstructed from canonical Daily,
+- the independent audit must then be updated to validate the final Weekly-from-Daily contract.
+
+Current status is therefore:
+
+- Dataset Contract design: FROZEN / READY TO IMPLEMENT
+- Final V2 implementation: PENDING
+- Final V2 empirical audit: PENDING
+- Formal model reruns: BLOCKED UNTIL AUDIT PASS
+
+Do not describe the current dataset directory as final / frozen.
+
+---
+
+## Next Execution Roadmap
+
+1. [DONE] Identify temporal integrity issues in the old panel.
+2. [DONE] Seal the PRE-TEMPORAL-FIX V1 backup.
+3. [DONE] Correct the Daily-window information-set logic.
+4. [DONE] Correct the Weekly availability logic.
+5. [DONE] Implement the common 20-date Train / Validation purge.
+6. [DONE] Build the interim V2 and run the independent temporal audit.
+7. [DONE] Diagnose provider Weekly-vs-Daily raw semantics.
+8. [DONE] Trace yfinance Daily / Weekly provenance.
+9. [DONE] Correct the forensic formal-relevance diagnostics.
+10. [DONE] Decide the Weekly source: reconstruct from canonical Daily.
+11. [DONE] Audit the `auto_adjust` semantics.
+12. [DONE] Run the Daily adjustment sensitivity analysis.
+13. [DONE] Decide the canonical Daily convention: yfinance 1d, `auto_adjust=True`.
+14. [NEXT] Modify the Dataset V2 builder so Weekly is deterministic Daily aggregation.
+15. [NEXT] Modify / extend the independent temporal audit to validate the final Weekly-from-Daily contract.
+16. [PENDING] Rebuild final Dataset V2.
+17. [PENDING] Run the independent temporal audit until OVERALL: PASS.
+18. [PENDING] Freeze final V2 counts / provenance.
+19. [PENDING] Rerun deployable naive baselines: Zero predictor and global Train-Mean predictor.
+20. [PENDING] Rerun Ridge.
+21. [PENDING] Rerun LSTM.
+22. [PENDING] Rerun Vanilla Transformer.
+23. [PENDING] Rerun SWiM-style Transformer.
+24. [PENDING] Rerun Adaptive PathFormer on Daily-only / Weekly-only / Daily+Weekly across 5d / 10d / 20d.
+25. [PENDING] Run PathFormer mechanism ablation: Single / Fixed / Static / Adaptive.
+26. [PENDING] Run at least 5-seed robustness.
+27. [PENDING] Use HAC / Newey-West or block-bootstrap inference where appropriate.
+28. [PENDING] Run router interpretation / regime analysis.
+29. [PENDING] Final thesis / paper tables and writeup.
+
+---
+
+## Baseline Terminology
+
+Formal deployable naive baselines:
+
+- Zero predictor: `y_hat = 0`
+- Global Train-Mean predictor: `y_hat_test = mean(y_train)`
+- Optional: per-ticker Train-Mean predictor
+
+A constant using:
+
+- `mean(y_test)`
+
+is NOT a valid OOS benchmark.
+
+If retained historically, label it:
+
+- `Oracle test-mean constant — diagnostic only`
+
+---
+
+## PathFormer / Experiment Design Must Remain
+
+Do not remove the existing advisor-aligned research design.
+
+Experiment 1:
+
+- FSLR diagnostic / case study
+
+Experiment 2:
+
+- panel frequency comparison
+
+Experiment 3:
+
+- Daily + Weekly PathFormer mechanism ablation
+
+Experiment 4:
+
+- robustness + router interpretation
+
+PathFormer architecture design remains:
+
+- Daily branch: 90 bars; patch scales [5, 10, 20, 30]
+- Weekly branch: 26 bars; patch scales [2, 4, 8, 13]
+- Daily+Weekly: independent frequency-specific branches with late concatenation
+- no global Daily-vs-Weekly frequency router
+- router: adaptive selection across scales WITHIN each frequency
+
+Mechanism ablation:
+
+- Single-scale
+- Fixed multi-scale
+- Static learned weighting
+- Adaptive router
+
+Do not claim that the adaptive router is already validated.
+
+---
+
+## Capacity / Inference Caveats
+
+- Daily+Weekly models have larger capacity than single-frequency models.
+- A Daily+Weekly performance improvement alone does not prove pure frequency complementarity unless capacity is controlled or acknowledged.
+- Apple MPS is not bitwise deterministic.
+- Single-seed development results are not formal robustness evidence.
+- 5d / 10d / 20d overlapping forward returns induce serial dependence.
+- Later formal inference should consider HAC / Newey-West or block bootstrap.
+
+---
+
+## Do Not Do / Current Priority
+
+Until Dataset Contract V2 passes the independent temporal audit:
+
+- do not tune PathFormer hyperparameters
+- do not rerun long formal models
+- do not interpret old panel metrics as final results
+- do not claim adaptive routing works
+- do not claim Weekly helps forecasting
+- do not claim Daily+Weekly complementarity
+- do not change the target formula
+- do not add new features
+- do not change normalization
+- do not modify horizons
+- do not change dependencies unless required
+- do not overwrite old audit evidence
+
+The current code and data remain protected: this task is documentation-only and does not alter any source, dataset, raw data, or model artifacts.
+
+---
+
+## Historical Benchmark Archive — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+
+The detailed historical benchmark sections below are retained as debugging and narrative context only. They are no longer valid for final claims. The documentation that follows is a historical archive under the old data contract, not a current benchmark verdict.
 
 ## Status of Old Panel Results (PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY)
 
