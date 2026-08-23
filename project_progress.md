@@ -10,20 +10,50 @@ This is not a cancellation of the research direction. The Adaptive Multi-Scale P
 
 Current authoritative status:
 
+Benchmark ladder (formal current stack):
+
+Naive
+→ Ridge
+→ LSTM
+→ Vanilla Transformer
+→ SWiM
+→ Adaptive PathFormer
+
 - Dataset Contract V2 design: FROZEN / IMPLEMENTED / ACCEPTED
 - Final V2 implementation: COMPLETE
 - Final V2 empirical audit: PASS
-- Formal MAIN V2 benchmark reruns: COMPLETE for Zero / Train-Mean / Ridge / LSTM
-- Vanilla Transformer MAIN V2: NEXT FORMAL MODEL
+- Formal MAIN V2 benchmark reruns: COMPLETE for Zero / Train-Mean / Ridge / LSTM / Vanilla Transformer
+- Naive: MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN
+- Ridge: MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN
+- LSTM: MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN
+- Vanilla Transformer: MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / INDEPENDENTLY AUDITED / FROZEN
+- SWiM: NEXT FORMAL MODEL STAGE
 - Historical panel results: PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 The active workflow is now:
 
 1. Dataset V2 accepted and frozen under the final audited contract
 2. Formal MAIN V2 benchmark evidence preserved under dataset/audit/main_v2/
-3. Proceed with the next formal model stage: Vanilla Transformer MAIN V2
+3. Proceed with the next formal model stage: SWiM MAIN V2
 4. Preserve historical pre-fix outputs as superseded archival context only
-5. Continue with PathFormer main frequency comparison and mechanism ablation under the frozen V2 contract
+5. Continue with SWiM code audit, namespace/provenance hardening, manual smoke validation, formal 9-cell training, raw evidence audit, finalize-only, and freeze under the formal benchmark ladder
+6. Continue with PathFormer main frequency comparison and mechanism ablation only after the SWiM MAIN V2 stage is formally frozen
+
+Current next stage:
+
+- SWiM MAIN V2
+
+The next workflow is:
+
+SWiM code audit
+→ MAIN V2 namespace/provenance hardening
+→ user-manual smoke validation
+→ user-manual 9-cell training
+→ raw evidence audit
+→ finalize-only
+→ freeze SWiM MAIN V2
+
+Do NOT state that SWiM training has begun.
 
 ### MAIN V2 benchmark namespace (2026-08-23)
 
@@ -158,6 +188,520 @@ The next model must use:
 - isolated namespace: `dataset/audit/main_v2/vanilla/`
 
 Do not start or run Vanilla Transformer yet.
+
+---
+
+## Vanilla Transformer MAIN V2 — COMPLETE / FROZEN
+
+Run family:
+- MAIN V2
+
+Temporal status:
+- POST-TEMPORAL-FIX
+
+Dataset contract:
+- Dataset Contract V2
+
+Nominal seed:
+- 42
+
+Completed cells:
+- 9 / 9
+
+Frequency settings:
+- daily_only
+- weekly_only
+- daily_weekly
+
+Horizons:
+- 5d
+- 10d
+- 20d
+
+Formal output namespace:
+- dataset/audit/main_v2/vanilla/
+
+Formal artifacts:
+- main_v2_vanilla_training_provenance.csv
+- panel_vanilla_summary_metrics.csv
+- panel_vanilla_test_predictions.csv
+- panel_vanilla_rank_ic_by_date.csv
+- panel_vanilla_training_history.csv
+- main_v2_vanilla_comparison.csv
+- main_v2_vanilla_run_manifest.csv
+- panel_vanilla_final_summary.txt
+
+### Frozen architecture
+
+Single-frequency architecture:
+
+[B,T,F]
+→ Linear(F,64)
+→ fixed sinusoidal positional encoding
+→ 2-layer TransformerEncoder
+→ encoded[:, -1, :]
+→ Linear(64,1)
+
+Daily+Weekly architecture:
+
+Daily branch:
+Daily input
+→ Linear(Fd,64)
+→ fixed sinusoidal positional encoding
+→ 2-layer TransformerEncoder
+→ final timestep representation
+
+Weekly branch:
+Weekly input
+→ Linear(Fw,64)
+→ fixed sinusoidal positional encoding
+→ 2-layer TransformerEncoder
+→ final timestep representation
+
+Fusion:
+concat [B,128]
+→ Linear(128,64)
+→ ReLU
+→ Linear(64,1)
+
+Frozen architecture constants:
+- d_model = 64
+- nhead = 4
+- num_encoder_layers = 2
+- dim_feedforward = 128
+- dropout = 0.1
+- activation = ReLU
+- no causal mask
+- no router
+- no PathFormer mechanism
+- no ticker embedding
+- no raw early fusion
+
+Exact trainable parameter counts:
+- daily_only = 67,393
+- weekly_only = 67,393
+- daily_weekly = 142,977
+
+### Vanilla training contract
+
+- seed = 42
+- batch_size = 32
+- learning_rate = 1e-4
+- optimizer = Adam
+- loss = HuberLoss(delta=1.0)
+- max_epochs = 100
+- early_stopping_patience = 10
+- gradient clipping max_norm = 1.0
+- early stopping based on validation Huber loss
+- restore best validation checkpoint
+- device used for this formal run = MPS
+
+Formal training completed successfully:
+- 9 / 9 experiments.
+
+Total terminal-reported runtime:
+- approximately 1h 32m 7s.
+
+Do NOT describe runtime as a scientific performance metric.
+
+### Formal Vanilla metrics
+
+#### 5-day horizon
+
+daily_only:
+- Test MSE = 0.011460
+- Mean Rank IC = 0.010653
+- PredStd/TrueStd = 0.336453
+- best_epoch = 9
+
+weekly_only:
+- Test MSE = 0.010264
+- Mean Rank IC = -0.017831
+- PredStd/TrueStd = 0.119871
+- best_epoch = 2
+
+daily_weekly:
+- Test MSE = 0.011753
+- Mean Rank IC = -0.002427
+- PredStd/TrueStd = 0.229232
+- best_epoch = 2
+
+Best Vanilla 5d MSE:
+- weekly_only = 0.010264
+
+Best Vanilla 5d Mean Rank IC:
+- daily_only = 0.010653
+
+#### 10-day horizon
+
+daily_only:
+- Test MSE = 0.026250
+- Mean Rank IC = -0.038106
+- PredStd/TrueStd = 0.373615
+- best_epoch = 11
+
+weekly_only:
+- Test MSE = 0.020158
+- Mean Rank IC = -0.020498
+- PredStd/TrueStd = 0.199070
+- best_epoch = 2
+
+daily_weekly:
+- Test MSE = 0.019720
+- Mean Rank IC = -0.002858
+- PredStd/TrueStd = 0.196997
+- best_epoch = 38
+
+Best Vanilla 10d MSE:
+- daily_weekly = 0.019720
+
+Best Vanilla 10d Mean Rank IC:
+- daily_weekly = -0.002858
+
+#### 20-day horizon
+
+daily_only:
+- Test MSE = 0.040298
+- Mean Rank IC = 0.009002
+- PredStd/TrueStd = 0.021760
+- best_epoch = 14
+
+weekly_only:
+- Test MSE = 0.039010
+- Mean Rank IC = -0.025970
+- PredStd/TrueStd = 0.258541
+- best_epoch = 1
+
+daily_weekly:
+- Test MSE = 0.039746
+- Mean Rank IC = -0.020774
+- PredStd/TrueStd = 0.251953
+- best_epoch = 13
+
+Best Vanilla 20d MSE:
+- weekly_only = 0.039010
+
+Best Vanilla 20d Mean Rank IC:
+- daily_only = 0.009002
+
+### Formal baseline comparison
+
+#### 5d
+
+Best Vanilla MSE:
+- weekly_only = 0.010264
+
+Same-frequency Ridge:
+- MSE = 0.010779
+- Mean Rank IC = -0.014014
+
+Same-frequency LSTM:
+- MSE = 0.010484
+- Mean Rank IC = 0.008995
+
+Zero baseline MSE:
+- 0.010018
+
+Train-Mean baseline MSE:
+- 0.010000
+
+Best Vanilla Rank IC:
+- daily_only = 0.010653
+
+Same-frequency Daily Ridge Rank IC:
+- 0.008863
+
+Same-frequency Daily LSTM Rank IC:
+- 0.034257
+
+#### 10d
+
+Best Vanilla MSE:
+- daily_weekly = 0.019720
+
+Same-frequency Ridge:
+- MSE = 0.023532
+- Mean Rank IC = 0.026108
+
+Same-frequency LSTM:
+- MSE = 0.021252
+- Mean Rank IC = 0.015471
+
+Zero baseline MSE:
+- 0.019296
+
+Train-Mean baseline MSE:
+- 0.019228
+
+Best Vanilla Rank IC:
+- daily_weekly = -0.002858
+
+Same-frequency D+W Ridge Rank IC:
+- 0.026108
+
+Same-frequency D+W LSTM Rank IC:
+- 0.015471
+
+#### 20d
+
+Best Vanilla MSE:
+- weekly_only = 0.039010
+
+Same-frequency Ridge:
+- MSE = 0.041776
+- Mean Rank IC = 0.011051
+
+Same-frequency LSTM:
+- MSE = 0.042758
+- Mean Rank IC = 0.027826
+
+Zero baseline MSE:
+- 0.036703
+
+Train-Mean baseline MSE:
+- 0.036521
+
+Best Vanilla Rank IC:
+- daily_only = 0.009002
+
+Same-frequency Daily Ridge Rank IC:
+- 0.014706
+
+Same-frequency Daily LSTM Rank IC:
+- 0.050117
+
+### Vanilla scientific interpretation
+
+1. Absolute-return MSE
+
+Vanilla Transformer improves MSE relative to Ridge and LSTM in several matched frequency/horizon cells.
+
+Across the 9 matched cells:
+- Vanilla beats same-frequency Ridge MSE in 6 / 9 cells.
+- Vanilla beats same-frequency LSTM MSE in 6 / 9 cells.
+
+However, the best Vanilla model at every horizon still fails to beat the best naive baseline.
+
+Best Vanilla versus best naive:
+
+5d:
+- 0.010264 versus 0.010000
+- approximately 2.64% worse.
+
+10d:
+- 0.019720 versus 0.019228
+- approximately 2.56% worse.
+
+20d:
+- 0.039010 versus 0.036521
+- approximately 6.81% worse.
+
+Therefore the current evidence supports:
+
+"The Vanilla Transformer improves absolute-return prediction relative to the learned Ridge and LSTM controls, but the improvement is insufficient to outperform the strong unconditional naive baseline."
+
+Do NOT describe Vanilla as achieving absolute-return predictive superiority.
+
+2. Cross-sectional ranking
+
+Vanilla does not demonstrate stronger cross-sectional ranking performance.
+
+Best Vanilla Mean Rank IC:
+- 5d = 0.010653
+- 10d = -0.002858
+- 20d = 0.009002
+
+The best Ridge/LSTM Rank IC remains higher at all three horizons.
+
+Across matched cells:
+- Vanilla beats same-frequency Ridge Rank IC in only 1 / 9 cells.
+- Vanilla beats same-frequency LSTM Rank IC in only 1 / 9 cells.
+
+Therefore record:
+
+"The Vanilla Transformer is more competitive on pooled MSE than on cross-sectional ranking performance."
+
+Do NOT claim stronger ranking signal from Vanilla.
+
+3. Multi-frequency interpretation
+
+Fixed Daily+Weekly late fusion does not consistently dominate the best single-frequency representation.
+
+Best-MSE configurations:
+- 5d = Weekly
+- 10d = Daily+Weekly
+- 20d = Weekly
+
+Best-Rank-IC configurations:
+- 5d = Daily
+- 10d = Daily+Weekly, but Rank IC remains negative
+- 20d = Daily
+
+Therefore:
+
+"Fixed late fusion does not provide consistent evidence of Daily+Weekly complementarity."
+
+Do NOT claim multi-frequency complementarity.
+
+However, this pattern motivates later adaptive scale-selection research:
+
+"Frequency preference varies across horizons, while fixed fusion does not consistently dominate. This provides motivation to test whether adaptive scale selection can allocate information across temporal scales more effectively."
+
+This is a motivation/hypothesis only.
+It is NOT evidence that adaptive routing works.
+
+### Prediction-dispersion diagnostics
+
+Add a subsection explicitly documenting prediction under-dispersion.
+
+Formal PredStd/TrueStd:
+
+daily_only:
+- 5d = 0.336453
+- 10d = 0.373615
+- 20d = 0.021760
+
+weekly_only:
+- 5d = 0.119871
+- 10d = 0.199070
+- 20d = 0.258541
+
+daily_weekly:
+- 5d = 0.229232
+- 10d = 0.196997
+- 20d = 0.251953
+
+The most severe case is:
+
+daily_only / 20d:
+- pred_std = 0.004158
+- true_std = 0.191105
+- PredStd/TrueStd = 0.021760
+
+Record this as severe prediction under-dispersion / near-collapse.
+
+Use cautious language:
+
+"Several Vanilla configurations produce substantially under-dispersed predictions. The Daily 20d configuration is the clearest near-collapse case, with predicted standard deviation only about 2.2% of the true-return standard deviation. This helps explain why acceptable pooled MSE does not necessarily imply strong cross-sectional predictive variation."
+
+Do NOT invalidate the run because of this.
+It is a formal diagnostic result.
+
+### Independent evidence audit
+
+Formal prediction rows:
+- 59,823
+- = 6,647 test observations × 9 cells
+
+Formal Rank-IC rows:
+- 3,519
+- = 391 test dates × 9 cells
+
+Summary rows:
+- 9
+
+Training-history rows:
+- 182
+
+Independent audit results:
+- all 9 frequency × horizon cells present
+- prediction duplicate keys = 0
+- Rank-IC duplicate keys = 0
+- training-history duplicate keys = 0
+- exactly 6,647 prediction rows per cell
+- exactly 391 Rank-IC dates per cell
+- exactly 17 tickers represented per test date/cell where required
+- y_true is identical across frequency settings for the same horizon/ticker/anchor_date
+- every summary best_epoch corresponds to the minimum validation loss in that cell's training history
+- pooled MSE/MAE/correlation/PredStd/TrueStd were independently reconstructable from saved predictions to floating-point precision
+- date-level Rank IC independently reproduced with maximum absolute discrepancy approximately 9.7e-17
+
+Status:
+- PASS
+
+### Vanilla provenance / hashes
+
+Dataset manifest SHA256:
+- fc6943db7b05aa47f18c39c61e4b3350014d55014816e9884a161be4e59fab0c
+
+Training-time script SHA256:
+- 9d7bef11709a4679b476a8281db0f640f254a93c32e7d3fd64edc58032eb8e81
+
+Finalization-time script SHA256:
+- 9d7bef11709a4679b476a8281db0f640f254a93c32e7d3fd64edc58032eb8e81
+
+Summary artifact SHA256:
+- e00ba2f2ce64782e2ac83abeeae15c47f16ebf54915a3869be812164d5730f3f
+
+Prediction artifact SHA256:
+- 732daf9f6ab0127c6b6f1496b48767e0671ba6f3203b756dc7c5450f7002f336
+
+Rank-IC artifact SHA256:
+- 6cbdd586a88a702e06689b034421ee04c21b4bec2ee8a2078bda812aa0033152
+
+Training-history artifact SHA256:
+- b3c7839c39e129d19c6c01225f59adec39228e15cc1eee2192f4c881bbf31279
+
+Explicitly note:
+
+training-time script SHA == finalization-time script SHA
+
+Therefore the frozen training script did not change between formal training and finalization.
+
+### Environment note
+
+Formal Vanilla run used the existing pathformer environment.
+
+Observed warnings:
+- pandas warning that PyArrow will become required in pandas 3.0
+- existing SciPy / NumPy version compatibility warning
+
+These warnings did not terminate the formal run.
+
+Do NOT change packages as part of this progress update.
+
+Maintain the benchmark-ladder rule:
+avoid unnecessary dependency changes during formal model comparison.
+
+### Formal claim guardrails
+
+PRE-TEMPORAL-FIX results were not used for formal comparison or model selection.
+
+Current seed-42 Vanilla evidence does NOT establish:
+- statistical significance
+- multi-seed robustness
+- profitability
+- causality
+- Daily+Weekly complementarity
+- adaptive routing success
+
+D+W has higher trainable capacity than the single-frequency models, so later interpretation must continue to acknowledge the capacity confound.
+
+Formal multi-seed robustness and inference remain future stages.
+
+Planned later seeds remain:
+- 0, 1, 21, 42, 3407
+
+Planned later inference may include:
+- HAC / Newey-West
+- block bootstrap
+- appropriate paired model comparison procedures
+
+Do NOT perform these analyses now.
+
+### Current next action
+
+CURRENT NEXT MODEL:
+- SWiM MAIN V2
+
+NEXT ACTION:
+- Static READ-ONLY audit of the existing SWiM implementation against Dataset Contract V2 and the frozen benchmark ladder.
+
+Do NOT start SWiM training.
+Do NOT modify SWiM code in this task.
+Do NOT run anything.
+
+Vanilla Transformer MAIN V2 is now frozen and must not be modified or retrained unless a future documented methodological reason requires it.
 
 ---
 
