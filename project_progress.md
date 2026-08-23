@@ -37,10 +37,27 @@ Benchmark status:
 - [DONE] Zero predictor MAIN V2
 - [DONE] Global Train-Mean predictor MAIN V2
 - [DONE] Ridge MAIN V2
-- [NEXT] LSTM MAIN V2
+- [IN PROGRESS] LSTM MAIN V2 under the accepted V2 panel and frozen dataset contract
 - [PENDING] Vanilla Transformer MAIN V2
 - [PENDING] SWiM MAIN V2
 - [PENDING] Adaptive PathFormer MAIN V2
+
+Formal LSTM MAIN V2 status (verified partial run):
+
+- Output namespace: `dataset/audit/main_v2/lstm/`
+- Verified artifacts present: `panel_lstm_summary_metrics.csv`, `panel_lstm_rank_ic_by_date.csv`, `panel_lstm_test_predictions.csv`, `panel_lstm_training_history.csv`
+- Current verified run state: 5/9 formal V2 LSTM cells produced; the completed cells are daily_only 5d/10d/20d and weekly_only 5d/10d. The remaining weekly_only 20d and the daily_weekly cells are still pending.
+- This is not a final acceptance claim for the full LSTM sweep; the full 9-cell benchmark remains in progress and is not yet benchmark-complete.
+
+Current verified LSTM results on the accepted V2 panel:
+
+- daily_only / 5d: test MSE = 0.0105253, mean Rank IC = 0.034257, PredStd/TrueStd = 0.2360
+- daily_only / 10d: test MSE = 0.0215425, mean Rank IC = 0.004469, PredStd/TrueStd = 0.3178
+- daily_only / 20d: test MSE = 0.0421456, mean Rank IC = 0.050117, PredStd/TrueStd = 0.3925
+- weekly_only / 5d: test MSE = 0.0104839, mean Rank IC = 0.008995, PredStd/TrueStd = 0.1929, no_extreme_scale_pathology = False
+- weekly_only / 10d: test MSE = 0.0214846, mean Rank IC = 0.010381, PredStd/TrueStd = 0.3469
+
+These measurements are part of the formal MAIN V2 panel benchmark, but they are not yet a full LSTM benchmark conclusion because the remaining cells are unexecuted.
 
 Main V2 naive results on the accepted V2 panel:
 
@@ -818,20 +835,20 @@ Do not describe the current dataset directory as final / frozen until the post-i
 14. [DONE] Modify the Dataset V2 builder so Weekly is deterministic Daily aggregation.
 15. [DONE] Modify / extend the independent temporal audit to validate the final Weekly-from-Daily contract.
 16. [DONE] Complete static smoke validation of the final builder/audit implementation.
-17. [PENDING] Rebuild final Dataset V2.
-18. [PENDING] Run the independent temporal audit until OVERALL: PASS.
-19. [PENDING] Freeze final V2 counts / provenance.
-20. [PENDING] Rerun deployable naive baselines: Zero predictor and global Train-Mean predictor.
-21. [PENDING] Rerun Ridge.
-22. [PENDING] Rerun LSTM.
+17. [DONE] Rebuild final Dataset V2.
+18. [DONE] Run the independent temporal audit until OVERALL: PASS.
+19. [DONE] Freeze final V2 counts / provenance.
+20. [DONE] Rerun deployable naive baselines: Zero predictor and global Train-Mean predictor.
+21. [DONE] Rerun Ridge.
+22. [IN PROGRESS] Rerun LSTM under the formal MAIN V2 contract.
 23. [PENDING] Rerun Vanilla Transformer.
 24. [PENDING] Rerun SWiM-style Transformer.
 25. [PENDING] Rerun Adaptive PathFormer on Daily-only / Weekly-only / Daily+Weekly across 5d / 10d / 20d.
-25. [PENDING] Run PathFormer mechanism ablation: Single / Fixed / Static / Adaptive.
-26. [PENDING] Run at least 5-seed robustness.
-27. [PENDING] Use HAC / Newey-West or block-bootstrap inference where appropriate.
-28. [PENDING] Run router interpretation / regime analysis.
-29. [PENDING] Final thesis / paper tables and writeup.
+26. [PENDING] Run PathFormer mechanism ablation: Single / Fixed / Static / Adaptive.
+27. [PENDING] Run at least 5-seed robustness.
+28. [PENDING] Use HAC / Newey-West or block-bootstrap inference where appropriate.
+29. [PENDING] Run router interpretation / regime analysis.
+30. [PENDING] Final thesis / paper tables and writeup.
 
 ---
 
