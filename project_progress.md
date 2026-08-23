@@ -1,5 +1,20 @@
 # Green Energy Stock Prediction Project
 
+## Current Critical Status — 2026-08-23
+
+### Temporal Integrity Repair and Clean Re-Benchmark
+
+The project is currently PAUSED on further model tuning and formal PathFormer experiments because a temporal-integrity audit of the frozen panel uncovered important problems in the dataset information set. The main architecture work is not being discarded: the Adaptive Multi-Scale PathFormer implementation may remain frozen as a model implementation, but previous panel empirical results must be recomputed after the dataset repair.
+
+This is a methodological reset, not a cancellation of the core research direction.
+
+- Model implementation status: largely complete / frozen for now
+- Dataset empirical validity status: old panel dataset requires repair
+- Formal empirical result status: old panel results invalidated for final research conclusions
+- Current priority: temporal-integrity repair -> audit -> clean re-benchmark
+
+The project is now explicitly in a dataset-repair phase before any new formal benchmark claim is made.
+
 ## Scope (Current Active Track)
 
 **FROZEN PANEL DECISION (2026-08-16):** **Primary panel = the 17-stock balanced Daily + Weekly panel, common period 2016-01-25 to 2026-06-05** (`AES, BEP, BLDP, BLNK, CSIQ, CWEN, DQ, ENPH, FCEL, FSLR, HASI, JKS, NEE, ORA, PLUG, RUN, SEDG` — see `panel_candidate_universe_summary.csv`, `n_tickers=17` row). This is the universe all Phase 2+ modeling (Ridge/LSTM/Transformer/PathFormer, Experiment 2/3/4) targets. **The full 24-stock universe is NOT deleted** — it remains in `panel_universe.GREEN_ENERGY_UNIVERSE` and the built dataset under `dataset/multiscale_dataset/panel/`, retained explicitly as a future robustness / unbalanced-panel extension, not as the primary experiment.
@@ -23,21 +38,158 @@ Project focus was single-stock, multi-scale, single-modality modeling on FSLR us
 
 ## Current Objective
 
-**Build and evaluate a stable Daily + Weekly panel framework** (frequency-specific encoders + late fusion + optional adaptive scale router), while preserving FSLR as the single-stock case-study / diagnostic model-comparison track that motivates the stable panel design. The FSLR Task 8 protocol below is historical/completed context, not the active objective — those items are paused per the Advisor Pivot section.
+The immediate project priority has changed from continuing Adaptive PathFormer benchmarking / ablation to repairing and independently auditing the panel dataset temporal information-set contract, then re-running the formal benchmarks on the clean dataset.
 
-Primary scripts (FSLR historical reference, already completed):
+The architecture remains scientifically relevant, but the current objective is no longer to interpret old panel model numbers as final evidence. The model implementation can remain frozen while the data contract is repaired and audited.
+
+Primary scripts (historical reference, retained for debugging context):
 
 - scripts/python/task8_baseline_pathformer.py
 - scripts/python/task8_baseline_pathformer_latefusion.py
 - scripts/python/task8_pathformer_multiseed_robustness.py
 
-Primary outputs (FSLR historical reference, already completed):
+Primary outputs (historical reference, retained for debugging context):
 
 - dataset/audit/task8_latefusion_seed0.csv
 - dataset/audit/task8_latefusion_seed1.csv
 - dataset/audit/task8_latefusion_seed21.csv
 - dataset/audit/task8_latefusion_seed42.csv
 - dataset/audit/task8_latefusion_seed3407.csv
+
+---
+
+## Temporal Integrity Repair: Three Critical Issues
+
+### A. Daily information set
+
+The old builder used a daily lookback approximately equivalent to:
+
+```python
+daily.iloc[i - H_DAILY:i]
+```
+
+with anchor:
+
+```python
+D = daily.iloc[i]
+```
+
+Therefore the Daily feature window ended at `D-1` while the target was:
+
+```python
+y_h(D) = log(Close[D+h] / Close[D])
+```
+
+This is not future leakage in the strict target sense, but it does not match the intended research information set. The final intended contract is that, at close of `D`, the model uses the latest 90 Daily OHLCV bars including `D` itself, i.e. `D-89, ..., D`, and therefore `daily_feature_end == anchor_date`.
+
+### B. Weekly week-start timestamp leakage
+
+This is a real look-ahead problem.
+
+Empirical checks on stocks including `AES`, `FSLR`, `ENPH`, and `NEE` showed that the provider's Weekly timestamp represents the START of the week. For example, a Weekly row timestamped Monday can still contain OHLCV information from the full trading week through the final trading day of that week.
+
+The old builder selected:
+
+```python
+weekly["datetime"] <= anchor_date
+```
+
+which incorrectly allowed an incomplete current weekly bar to enter the feature set before the week had finished.
+
+Therefore old `weekly_only` and `daily_weekly` panel experiments contained temporal feature leakage. The corrected contract is:
+
+For each weekly bar with provider timestamp `weekly_bar_start`, derive `weekly_available_date` from the actual daily trading observations represented by that bar:
+
+```python
+week_start <= daily_date < week_start + 7 calendar days
+```
+
+and set:
+
+```python
+weekly_available_date = max(actual represented daily trading date)
+```
+
+At anchor `D`, a Weekly bar can only be used when:
+
+```python
+weekly_available_date <= D
+```
+
+This avoids hard-coding Friday and correctly handles holidays and shortened trading weeks. Metadata must preserve both `weekly_bar_start` and `weekly_available_date`.
+
+### C. Future-label split-boundary overlap
+
+The previous chronological split was based only on anchor dates. Because targets are forward returns, the final training/validation anchors have labels whose future price dates enter the next split.
+
+Observed old crossing counts were:
+
+- 5d: train crossing = 85 = 17 stocks * 5 dates; val crossing = 85
+- 10d: train crossing = 170 = 17 stocks * 10 dates; val crossing = 170
+- 20d: train crossing = 340 = 17 stocks * 20 dates; val crossing = 340
+
+This is best described as label-boundary overlap / purging, not ordinary feature leakage.
+
+The new split contract uses ONE COMMON PURGED ANCHOR UNIVERSE across all 5d/10d/20d horizons. With `MAX_HORIZON = 20`, purge the final 20 common anchor dates from TRAIN and the final 20 common anchor dates from VALIDATION, leaving TEST terminal and unpurged. The purpose is to ensure all horizons share the same retained `(ticker, anchor_date)` universe while no train/validation future target enters the next split.
+
+---
+
+## Final Intended Dataset Contract
+
+For every retained sample:
+
+- Anchor: `D = close of the anchor trading date`
+- Daily input: last 90 Daily OHLCV observations including `D`, i.e. `D-89 ... D`; `daily_feature_end == D`
+- Weekly input: last 26 completed Weekly OHLCV bars only, with `weekly_available_date <= D`
+- Target: `y_h(D) = log(Close[D+h] / Close[D])`, `h in {5, 10, 20}` trading observations
+- Split: chronological 17-stock common-date panel; purge final 20 common anchor dates from train and validation; test remains terminal and unpurged
+
+The target construction is not being changed. The forward log-return formula has already been audited and remains correct; the fix is in the information set and split validity, not the target definition itself.
+
+---
+
+## Metadata / Independent Audit Contract
+
+Rebuilt per-sample metadata should contain at minimum:
+
+- `anchor_date`
+- `daily_feature_end`
+- `weekly_bar_start`
+- `weekly_available_date`
+- `target_date_5d`
+- `target_date_10d`
+- `target_date_20d`
+
+The required audit script is:
+
+- `scripts/python/panel_verify_temporal_integrity.py`
+
+Required checks:
+
+1. Daily: `daily_feature_end == anchor_date`; expected violations = 0
+2. Weekly: `weekly_available_date <= anchor_date`, `weekly_available_date >= weekly_bar_start`; expected violations = 0
+3. Target chronology: `target_date_h > anchor_date` for `h = 5, 10, 20`; expected violations = 0
+4. Split-boundary purge: retained train targets do not enter validation; retained validation targets do not enter test; expected crossings = 0
+5. Panel consistency: exactly 17 tickers; no duplicate `(ticker, anchor_date)`; no NaN / Inf; `X_daily`, `X_weekly`, `y_5d`, `y_10d`, `y_20d`, and metadata lengths agree; same sample universe across frequency settings; train < validation < test chronologically
+6. Independent target recomputation: reload raw daily data, find anchor row index `i`, independently verify `expected_target_date = daily.iloc[i+h].date` and `expected_y = log(Close[i+h] / Close[i])`; compare both stored target date and stored target values, without trusting metadata produced by the same builder
+7. Independent Daily-window recomputation: randomly sample observations, reload raw daily data, reconstruct the expected 90-row window `i-89 ... i`, and compare to stored `X_daily`
+8. Independent Weekly recomputation: use raw Daily rows satisfying `week_start <= daily_date < week_start + 7 calendar days` and reconstruct `Open = first Open`, `High = max High`, `Low = min Low`, `Close = last Close`, `Volume = sum Volume`; verify stored Weekly bar values and `weekly_available_date == final actual represented trading date`
+
+The audit must be independent rather than merely checking builder-generated metadata against itself.
+
+---
+
+## Status of Old Panel Results (PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY)
+
+The old panel-based Ridge, LSTM, Vanilla Transformer, SWiM, and Adaptive PathFormer results remain documented as historical and debugging artifacts, but they are no longer valid as final research evidence.
+
+These results were produced under the old panel information-set contract. The Daily-window definition, Weekly row availability rule, and split sample universe all changed under the temporal repair, so old panel metrics must not enter final paper tables or final research conclusions.
+
+This includes old Weekly-only and Daily+Weekly experiments, which were contaminated by week-start look-ahead leakage. Daily-only results are also no longer directly comparable because the Daily input window and the retained split sample universe are changing.
+
+The most recent Adaptive PathFormer 10d/20d findings are retained as historical diagnostics and should be read as diagnostics only. A brief summary is: all six configurations had negative pooled Corr; Rank IC was weak or mostly negative; predictions were strongly under-dispersed; none beat the zero predictor on pooled MSE.
+
+These are not final scientific conclusions.
 
 ---
 
@@ -130,7 +282,7 @@ Mean±Std summary (test set):
 
 ---
 
-## Ridge Panel Baseline — DONE / FROZEN
+## Ridge Panel Baseline — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 - Universe: frozen 17-stock balanced panel
 - Daily / Weekly / Daily+Weekly
@@ -174,7 +326,7 @@ SVD is the formal Ridge solver for the project benchmark.
 
 ---
 
-## LSTM Panel Baseline — SINGLE-SEED COMPLETE / ARCHITECTURE FROZEN
+## LSTM Panel Baseline — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 The research question remains explicit:
 
@@ -338,7 +490,7 @@ Do not claim profitable trading performance, causal effects, or universal superi
 
 ---
 
-## Vanilla Transformer Panel Development Baseline — DONE / FROZEN
+## Vanilla Transformer Panel Development Baseline — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 The Vanilla Transformer is an additional methodological control in the panel methodological control ladder. It is not one of the advisor's explicitly required "improved Transformer" algorithms. Its role is to isolate the effect of generic self-attention relative to the recurrent LSTM baseline, and to separate that effect from the incremental value of structured multi-scale / adaptive mechanisms in the later PathFormer branch.
 
@@ -544,7 +696,7 @@ Therefore, nominal seed 42 on Apple MPS does not guarantee bitwise run-to-run de
 
 ---
 
-## SWiM-style Panel Transformer — SINGLE-SEED COMPLETE / ARCHITECTURE FROZEN
+## SWiM-style Panel Transformer — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 SWiM is the improved Transformer A in the panel methodological control ladder:
 
@@ -1064,6 +1216,50 @@ Therefore:
 
 ---
 
+## Constant Baseline Terminology (Required Methodological Note)
+
+The formal OOS constant baseline must not use the TEST-SET mean. A constant defined as `mean(y_test)` is an oracle diagnostic because it uses test labels.
+
+It may be retained only if explicitly labeled:
+
+- `Oracle test-mean constant — diagnostic only`
+
+The valid deployable baselines are:
+
+- `Zero predictor`: `y_hat = 0`
+- `Global train-mean predictor`: `y_hat_test = mean(y_train)`
+
+Optionally later:
+
+- `Per-ticker train-mean predictor`
+
+Formal benchmark tables should use the train mean, not the test mean.
+
+---
+
+## Dataset Version / Provenance
+
+The repaired dataset should be treated as a new information-set version:
+
+- `Dataset Contract V1`: old / pre-temporal-fix / diagnostic
+- `Dataset Contract V2`: temporally repaired / formal
+
+Desired V2 provenance fields:
+
+- `dataset_contract_version = 2`
+- `daily_includes_anchor = True`
+- `weekly_availability_rule = actual_last_trading_day`
+- `split_purge_dates = 20`
+- `target_definition = forward_log_return`
+
+Old formal outputs should be backed up, for example under:
+
+- `dataset/audit/pre_alignment_fix/`
+
+and post-fix results should not be silently mixed with pre-fix results.
+
+---
+
 ## Current Assessment
 
 The current project status is now materially different from the earlier pre-freeze narrative.
@@ -1268,22 +1464,40 @@ Weekly sequence         │
 
 This is directly aligned with the advisor's original statement that PathFormer addresses the multi-scale problem within each frequency, while late fusion addresses information complementarity between frequencies.
 
-### New Active Roadmap (Advisor-Aligned)
+### New Active Roadmap (Advisor-Aligned, Temporally Repaired)
 
-1. **DONE — Preserve FSLR A1–A5 as a negative-result diagnostic case study** to explain why naive full-frequency fusion fails and why the panel baseline must be redesigned.
-2. **DONE — Freeze the 17-stock Daily + Weekly panel infrastructure** and standardize the train/val/test split, normalization, and evaluation protocol used by the frozen panel baselines.
-3. **IN PROGRESS — Complete the panel methodological control ladder** across the current data-supported configurations: Daily only, Weekly only, and Daily + Weekly.
-   - Ridge: DONE / FROZEN
-   - LSTM: DONE / FROZEN development benchmark
-   - Vanilla Transformer control: DONE / FROZEN development control
-   - SWiM-style improved Transformer A: DONE / FROZEN single-seed development benchmark
-   - Adaptive Multi-Scale PathFormer improved Transformer B: NEXT
-4. **PARTIALLY EXECUTABLE — Advisor Experiment 2 frequency comparison** on the panel architecture: Daily only, Weekly only, Daily + Weekly are current-data-supported; Hourly only, Half-Day only, Hourly + Daily, and All frequencies remain blocked on panel-wide intraday data.
-5. **PENDING — Experiment 3: Daily + Weekly PathFormer mechanism ablation** comparing single-scale vs fixed multi-scale vs static learned scale weight vs adaptive router.
-6. **PENDING — Experiment 4: 5-seed robustness and router interpretation** with mean ± std reporting and regime analysis.
-7. **PENDING — Final paper writeup**.
+The immediate workflow has been reset to the following order.
 
-This roadmap separates the advisor's literal four-experiment spine from the additional panel methodological control ladder. The model-control ladder remains scientifically useful but is not the literal definition of Experiment 2.
+#### PHASE A — TEMPORAL REPAIR
+
+1. Review the actual Copilot diff for:
+   - `scripts/python/panel_build_multiscale_dataset.py`
+   - `scripts/python/panel_common.py`
+   - `scripts/python/panel_verify_temporal_integrity.py`
+2. Correct any implementation / audit issues.
+3. Back up old dataset manifests and model outputs.
+4. Rebuild Dataset Contract V2.
+5. Run the full independent temporal-integrity audit.
+6. Do not proceed unless the audit passes.
+
+#### PHASE B — CLEAN BASELINE RE-BENCHMARK
+
+7. Audit rebuilt sample counts and target distributions for train / validation / test: `train y mean`, `validation y mean`, `test y mean` for 5d / 10d / 20d.
+8. Run the zero predictor and train-mean predictor.
+9. Re-run the formal Linear / Ridge baseline.
+10. Re-run the formal panel benchmark controls required for the final paper: LSTM, Vanilla Transformer, SWiM on the same repaired dataset.
+
+#### PHASE C — PATHFORMER
+
+11. Re-run Adaptive PathFormer main frequency comparison: Daily, Weekly, Daily + Weekly across 5d / 10d / 20d.
+12. Only after the main PathFormer comparison is stable, perform the PathFormer scale-mechanism ablation on the chosen stable frequency configuration:
+   - Single-scale
+   - Fixed multi-scale
+   - Static learned scale weights
+   - Adaptive router
+13. Later: multi-seed robustness, router interpretation, inference accounting for overlapping labels, and HAC / Newey-West or block-bootstrap style uncertainty where appropriate.
+
+This roadmap explicitly places the dataset repair before any formal benchmark re-run. Old results remain in the document as historical diagnostics, not as valid final evidence.
 
 ### Panel Pipeline Status
 
@@ -1307,7 +1521,7 @@ Current implemented formal/development baselines:
 - SWiM-style / windowed-attention Transformer: DONE / FROZEN development benchmark
 - Late-Fusion PathFormer / adaptive multi-scale PathFormer: prototype exists, but formal benchmark version remains pending
 
-The current priority is now the formal panel Adaptive Multi-Scale PathFormer / improved Transformer B, using the completed Ridge, LSTM, Vanilla, and SWiM controls as the comparison ladder.
+The current priority is now the temporal repair and clean re-benchmark, not another round of adaptive PathFormer tuning. The pathformer implementation remains frozen as a code artifact, but the formal dataset and benchmark evidence must be repaired before any final empirical comparison is made.
 
 ### FSLR Full-Frequency Case Study (A1–A7) as Historical Evidence
 
@@ -1322,14 +1536,15 @@ The A1–A7 sequence should be preserved as the historical evidence showing why 
 
 ### Final Interpretation
 
-The project has now moved from a failed all-frequency replication attempt toward a more defensible scientific strategy:
+The project has moved from a failed all-frequency replication attempt toward a more defensible scientific strategy:
 
 - Keep the adaptive multi-scale idea as the core contribution.
 - Remove the unstable full-frequency naive fusion from the panel mainline.
 - Build the panel around an architecture that respects frequency-specific structure first, then combines them with stable late fusion and optional router mechanisms.
 - Use FSLR as a diagnostic case study that explains why the more robust panel design is necessary.
+- Maintain the advisor framework, but do not treat old panel results as final evidence until the repaired dataset passes the independent temporal audit.
 
-This is the version of the plan consistent with the advisor's latest feedback and with the empirical evidence from A1–A5.
+This is the version of the plan consistent with the advisor's latest feedback and with the empirical evidence from A1–A5, under the current temporal-repair reset.
 
 ---
 
@@ -1422,38 +1637,29 @@ Final status line for this phase:
 - [Done] Vanilla Transformer development benchmark passed its control-benchmark gate.
 - [Done] SWiM development benchmark passed the execution gate, with one explicit model-output failure cell: Daily+Weekly / 20d constant collapse.
 
-### Phase 3A — Panel Methodological / Architecture Controls — IN PROGRESS
+### Phase 3A — Panel Methodological / Architecture Controls — PAUSED UNTIL DATASET V2 AUDIT PASSES
 
 This is the additional model-control ladder used to attribute whether the observed temporal-frequency patterns are architecture-specific or persist across model families. It is not the advisor's literal Experiment 2.
 
-Completed model families:
+Completed model families under the old temporal contract:
 
-- [Done] Ridge × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
-- [Done — single seed] LSTM × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
-- [Done — single seed / full 9-config benchmark] Vanilla Transformer control × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
-- [Done — single seed / full 9-config benchmark] SWiM-style improved Transformer A × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Done — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY] Ridge × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Done — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY] LSTM × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Done — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY] Vanilla Transformer control × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+- [Done — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY] SWiM-style improved Transformer A × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
-Next model family in order:
+These results are historic diagnostics only. They must be re-run on the repaired dataset before contributing to final empirical conclusions. They remain useful for debugging and for understanding the old pipeline, but they do not define the current formal benchmark.
 
-1. [Next] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
+Next model family in order after the dataset repair:
+
+1. [Next after V2 pass] Adaptive Multi-Scale PathFormer improved Transformer B × Daily / Weekly / Daily+Weekly × 5d / 10d / 20d
 
 Blocked / deferred:
 
 - [Blocked on data] Hourly only, Half-Day only, Hourly + Daily, All frequencies
-  - Requires a panel-wide intraday OHLCV source; the existing panel dataset is only Daily + Weekly.
+  - Requires a panel-wide intraday OHLCV source; the existing panel dataset is only Daily + Weekly under the current repaired data scope.
 
-Current evidence from the completed control benchmarks:
-
-- 5d SWiM best finite Rank IC: Weekly-only = 0.020262; Daily-only = -0.048280; Daily+Weekly = -0.024711
-- 10d SWiM best finite Rank IC: Daily-only = 0.020621; Weekly-only = -0.035014; Daily+Weekly = -0.014862
-- 20d SWiM has no positive finite Rank IC; Daily+Weekly collapses to a near-constant prediction
-- 5d best Rank IC: Weekly-only for Vanilla; Daily+Weekly for LSTM
-- 10d best Rank IC: Daily+Weekly for Vanilla and LSTM
-- 20d best Rank IC: Daily-only for Vanilla; Daily+Weekly for LSTM
-
-These results provide strong evidence that the preferred temporal representation is architecture- and horizon-dependent rather than universally dominated by one frequency setting. This pattern motivates, but does not yet validate, adaptive multi-scale or adaptive frequency selection. The fixed local receptive field and fixed D+W fusion do not provide universal superiority, and the SWiM result adds another fixed-structure failure mode rather than a validated final-pattern solution.
-
-The Vanilla Transformer is a supplementary conventional-attention control; it does not occupy an advisor-requested improved-Transformer slot. SWiM-style Transformer is Improved Transformer A. Adaptive Multi-Scale PathFormer is Improved Transformer B / the proposed model. Adaptive PathFormer is the next formal model-development step.
+Current evidence from the completed old control benchmarks is retained only as historical context. It should not be used to claim frequency superiority, weekly help, or Daily+Weekly complementarity until the cleaned V2 dataset passes the independent temporal audit.
 
 ### Experiment 2 — Panel Frequency-Configuration Comparison
 
@@ -1484,9 +1690,9 @@ Blocked / deferred because panel-wide intraday data are unavailable:
 
 ### Phase 4 — Experiment 3: Daily + Weekly PathFormer Mechanism Ablation
 
-This is the PathFormer mechanism experiment that follows the panel frequency comparison. **Daily + Weekly is the advisor-specified working configuration** for Experiment 3.
+This is the PathFormer mechanism experiment that follows the panel frequency comparison. **Daily + Weekly is the advisor-specified working configuration** for Experiment 3, but the first strict gate is dataset V2 temporal validity.
 
-- [Pending] Build the Daily+Weekly mechanism ablation ladder.
+- [Pending] Build the Daily+Weekly mechanism ablation ladder after V2 dataset pass.
   - Single-scale
   - Fixed multi-scale
   - Static learned scale weight
@@ -1559,16 +1765,17 @@ Important clarification:
 
 Current status:
 
-- Ridge stable: PASS
-- LSTM stable: PASS as a single-seed development benchmark
-- Vanilla Transformer control: PASS as a frozen development benchmark
-- SWiM-style improved Transformer A: PASS as a completed single-seed development benchmark, with the Daily+Weekly / 20d constant-collapse caveat
-- Adaptive Multi-Scale PathFormer improved Transformer B: pending / next
-- Formal adaptive-router ablation / interpretation: wait until the PathFormer model-family development benchmark is complete
+- Dataset V2 repair and audit gate: required before any formal benchmark interpretation
+- Ridge stable under the old pipeline: historically completed, but not valid for final conclusions under the repaired data contract
+- LSTM stable under the old pipeline: historically completed, but not valid for final conclusions under the repaired data contract
+- Vanilla Transformer control under the old pipeline: historically completed, but not valid for final conclusions under the repaired data contract
+- SWiM-style improved Transformer A under the old pipeline: historically completed, but not valid for final conclusions under the repaired data contract
+- Adaptive Multi-Scale PathFormer improved Transformer B: pending / next, and will only be interpreted after the repaired V2 audit passes
+- Formal adaptive-router ablation / interpretation: wait until the repaired dataset and the clean V2 benchmark sequence pass review
 
 The gate is no longer: "Should we start deep models?"
 
-It is now: "After Ridge, LSTM, the Vanilla control, the SWiM-style improved Transformer, and the PathFormer development run, is there sufficient evidence to justify the formal adaptive multi-scale / router mechanism study?"
+It is now: "After the temporal repair passes the independent audit, and after the clean baseline re-benchmark is complete, will the PathFormer development run provide valid evidence for the formal adaptive multi-scale / router mechanism study?"
 
 ---
 
@@ -1583,37 +1790,101 @@ It is now: "After Ridge, LSTM, the Vanilla control, the SWiM-style improved Tran
 
 ## Immediate Execution Checklist (Most Urgent)
 
-1. [Done] Freeze the 17-stock balanced Daily + Weekly panel and shared sample index.
-2. [Done] Freeze the Ridge ML baseline with SVD.
-3. [Done] Complete the LSTM single-seed development benchmark.
-4. [Done] Implement and validate the Vanilla Transformer control using the exact same `panel_common` loader, split, normalization, targets, and metrics.
-5. [Done] Run the Vanilla Transformer development benchmark on Daily / Weekly / Daily+Weekly × 5d / 10d / 20d, nominal seed=42.
-6. [Done] Implement the panel SWiM-style improved Transformer A using the same frozen panel infrastructure.
-7. [Done] Run the SWiM-style panel 9-configuration development benchmark.
-8. [Next] Design / implement the formal Adaptive Multi-Scale PathFormer panel model.
-9. [Pending] Run the Adaptive PathFormer Daily / Weekly / Daily+Weekly × 5d / 10d / 20d development comparison.
-10. [Pending] Complete the five-family methodological control ladder across Ridge, LSTM, Vanilla Transformer, SWiM-style Transformer, and Adaptive PathFormer.
-11. [Pending] Execute the advisor-defined Experiment 2 frequency comparison under the selected stable panel main-model framework. Daily-only, Weekly-only, and Daily+Weekly have already been exercised across Ridge / LSTM / Vanilla / SWiM methodological controls, but the formal advisor-defined frequency comparison remains to be finalized after the PathFormer development benchmark.
-12. [Pending] Run the Advisor Experiment 3 Daily+Weekly PathFormer mechanism ablation: single / fixed / static / adaptive.
+1. [Current priority] Review the actual Git diff for the temporal repair:
+   - `git --no-pager diff -- scripts/python/panel_build_multiscale_dataset.py scripts/python/panel_common.py scripts/python/panel_verify_temporal_integrity.py`
+2. [Current priority] Correct any implementation / audit issues found in the diff review.
+3. [Current priority] Back up old dataset manifests and model outputs.
+4. [Current priority] Rebuild Dataset Contract V2.
+5. [Current priority] Run the full independent temporal-integrity audit.
+6. [Pending] Do not proceed unless the temporal audit passes.
+7. [Pending] Audit rebuilt sample counts and target distributions for 5d / 10d / 20d.
+8. [Pending] Run zero and train-mean baselines.
+9. [Pending] Re-run the formal Linear / Ridge baseline on the repaired dataset.
+10. [Pending] Re-run the panel benchmark controls required for final paper claims: LSTM, Vanilla Transformer, and SWiM on the same repaired dataset.
+11. [Pending] Re-run Adaptive PathFormer main frequency comparison: Daily, Weekly, Daily + Weekly across 5d / 10d / 20d.
+12. [Pending] Run the Daily+Weekly mechanism ablation: single / fixed / static / adaptive.
 13. [Pending] Run 5-seed robustness on the selected model family.
 14. [Pending] Produce router / regime interpretation analysis.
 15. [Pending] Finalize the panel-results writeup and the FSLR diagnostic section.
 
-Current control ladder:
+Current control ladder for historical documentation:
 
-Naive → Ridge → LSTM → Vanilla Transformer [control] → SWiM-style Transformer [Improved Transformer A] → Adaptive Multi-Scale PathFormer [Improved Transformer B / proposed model]
+Naive → Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer
 
 with status:
 
-- Naive: DONE
-- Ridge: DONE / FROZEN
-- LSTM: DONE / FROZEN development benchmark
-- Vanilla Transformer: DONE / FROZEN development control
-- SWiM-style panel Transformer: DONE / FROZEN development benchmark
-- Adaptive Multi-Scale PathFormer: NEXT
-- Mechanism ablation: PENDING
-- Formal robustness: PENDING
-- Interpretability: PENDING
+- Naive: DONE / historical reference only
+- Ridge: DONE / PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+- LSTM: DONE / PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+- Vanilla Transformer: DONE / PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+- SWiM-style panel Transformer: DONE / PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
+- Adaptive Multi-Scale PathFormer: implementation frozen; formal benchmark pending V2 repair
+- Mechanism ablation: PENDING after dataset V2 audit
+- Formal robustness: PENDING after repaired-data benchmark
+- Interpretability: PENDING after stable model selection
+
+---
+
+## Model-Capacity Caveat
+
+Approximate Adaptive PathFormer parameter counts under the current design are:
+
+- `daily_only`: ~56k
+- `weekly_only`: ~56k
+- `daily_weekly`: ~116k
+
+Therefore, if Daily+Weekly outperforms a single-frequency model, this alone does not prove cross-frequency information complementarity. The larger dual-frequency model also has greater capacity. Later analysis should either include a matched-capacity control if feasible, or explicitly acknowledge the parameter-capacity confound.
+
+---
+
+## Do Not Do / Current Priority
+
+Until Dataset Contract V2 passes the independent temporal audit:
+
+DO NOT:
+
+- tune PathFormer hyperparameters
+- rerun long formal models
+- interpret old panel metrics as final results
+- claim adaptive routing works
+- claim Weekly helps forecasting
+- claim Daily+Weekly complementarity
+- change the target formula
+- add new features
+- change normalization
+- modify horizons
+- change dependencies unless required
+- overwrite old audit evidence
+
+CURRENT NEXT ACTION:
+
+```bash
+git --no-pager diff -- \
+  scripts/python/panel_build_multiscale_dataset.py \
+  scripts/python/panel_common.py \
+  scripts/python/panel_verify_temporal_integrity.py
+```
+
+Do not rebuild the dataset until this diff has been reviewed.
+
+---
+
+## Advisor / Experiment Design Context (Retained)
+
+The existing advisor-directed experimental framework remains valid in spirit, but the temporal repair changes the validity of the dataset/results, not the fundamental research question.
+
+- Panel is the main empirical framework.
+- PathFormer addresses multi-scale structure within frequency.
+- Late fusion addresses Daily/Weekly information complementarity.
+- The router is within-frequency, not a global Daily-vs-Weekly router.
+- Experiment 3 compares:
+  - Single
+  - Fixed multi-scale
+  - Static learned weights
+  - Adaptive router
+- Formal robustness and interpretation come later.
+
+This reset does not erase the research question; it restores the validity conditions required to answer it.
 
 ---
 
