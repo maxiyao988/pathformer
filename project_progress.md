@@ -10,20 +10,19 @@ This is not a cancellation of the research direction. The Adaptive Multi-Scale P
 
 Current authoritative status:
 
-- Dataset Contract V2 design: FROZEN / READY TO IMPLEMENT
-- Final V2 implementation: PENDING
-- Final V2 empirical audit: PENDING
-- Formal model reruns: BLOCKED UNTIL AUDIT PASS
+- Dataset Contract V2 design: FROZEN / IMPLEMENTED / ACCEPTED
+- Final V2 implementation: COMPLETE
+- Final V2 empirical audit: PASS
+- Formal model reruns: READY TO PROCEED AFTER THIS ACCEPTANCE GATE
 - Old panel results: PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 The active workflow is now:
 
-1. Repair/Finalize Dataset Contract V2
-2. Independent temporal audit PASS
-3. Rebuild/verify final panel sample universe and counts
-4. Rerun deployable baselines and formal panel benchmarks
-5. Run PathFormer main frequency comparison and mechanism ablation
-6. Robustness / inference / interpretation
+1. Final Dataset V2 rebuild and audit completed
+2. Freeze accepted panel counts / provenance / contract
+3. Re-run deployable baselines and formal panel benchmarks under the accepted V2 panel
+4. Run PathFormer main frequency comparison and mechanism ablation
+5. Robustness / inference / interpretation
 
 ---
 
@@ -213,9 +212,9 @@ The V1 backup must remain read-only.
 
 ---
 
-## First V2 Rebuild / Interim Temporal Audit
+## Final Dataset V2 Rebuild / Accepted Temporal Audit
 
-The first corrected V2 rebuild completed successfully using:
+The final corrected V2 rebuild completed successfully using:
 
 ```bash
 python scripts/python/panel_build_multiscale_dataset.py
@@ -229,7 +228,7 @@ Built directory size:
 
 - ≈231M
 
-The rebuild generated broader 24-ticker green-energy directories, but the formal panel loader retained the intended 17-stock formal universe:
+The rebuild produced the formal 17-stock green-energy panel retained for the main empirical track:
 
 - AES
 - BEP
@@ -249,14 +248,40 @@ The rebuild generated broader 24-ticker green-energy directories, but the formal
 - RUN
 - SEDG
 
-Interim temporal audit result:
+Accepted final V2 contract summary:
 
+- Weekly source = deterministic aggregation from canonical adjusted Daily
+- provider-native Weekly = diagnostic only / not formal input
+- Daily = yfinance 1d auto_adjust=True
+- target = forward adjusted-price log return
+- Daily window = 90 including anchor
+- Weekly window = latest 26 completed bars
+- purge = final 20 common Train dates + final 20 common Validation dates
+
+Final independent temporal audit result:
+
+- Formal Universe / Dataset Contract: PASS
 - Daily Window Integrity: PASS
-- Weekly Availability / Look-Ahead: PASS
+- Weekly-from-Daily Construction Integrity: PASS
+- Weekly Availability / Look-Ahead Integrity: PASS
 - Target Date and Value Integrity: PASS
-- Split Purging: PASS
+- Split Purging / Boundary Crossing: PASS
 - Panel Consistency: PASS
-- Weekly Raw-Data Semantics: FAIL
+- OVERALL: PASS
+
+Accepted counts:
+
+- Formal ticker count: 17
+- Retained formal samples: 43571
+- Formal common anchor dates: 13312
+- Daily violations: 0
+- Weekly construction violations: 0
+- Weekly availability violations: 0
+- Weekly metadata violations: 0
+- Target-date/value violations: 0
+- Split crossing violations: 0
+
+The final V2 panel is accepted and frozen for formal benchmarking.
 
 Overall result:
 
