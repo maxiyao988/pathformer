@@ -272,14 +272,20 @@ Final independent temporal audit result:
 Accepted counts:
 
 - Formal ticker count: 17
-- Retained formal samples: 43571
-- Formal common anchor dates: 13312
+- Formal common anchor dates: 2563
+- Total formal samples: 43571
 - Daily violations: 0
 - Weekly construction violations: 0
 - Weekly availability violations: 0
 - Weekly metadata violations: 0
 - Target-date/value violations: 0
 - Split crossing violations: 0
+
+Final accepted split counts:
+
+- Train: dates = 1802, samples = 30634, 2016-01-29 to 2023-03-27
+- Validation: dates = 370, samples = 6290, 2023-04-26 to 2024-10-14
+- Test: dates = 391, samples = 6647, 2024-11-12 to 2026-06-05
 
 The final V2 panel is accepted and frozen for formal benchmarking.
 
