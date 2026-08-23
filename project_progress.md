@@ -13,7 +13,8 @@ Current authoritative status:
 - Dataset Contract V2 design: FROZEN / IMPLEMENTED / ACCEPTED
 - Final V2 implementation: COMPLETE
 - Final V2 empirical audit: PASS
-- Formal model reruns: READY TO PROCEED AFTER THIS ACCEPTANCE GATE
+- Formal model reruns: IN PROGRESS
+- Zero / Train-Mean / Ridge / LSTM complete; Vanilla Transformer is the next formal model.
 - Old panel results: PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
 The active workflow is now:
@@ -162,15 +163,18 @@ Do not start or run Vanilla Transformer yet.
 
 ## Current Mainline Objective
 
-The immediate project priority is no longer continued tuning on historical panel outputs. The project is now explicitly focused on:
+Dataset Contract V2 is accepted and frozen.
 
-- repairing the old panel dataset information-set contract,
-- sealing the old V1 artifacts as historical snapshots,
-- rebuilding the corrected V2 panel,
-- independently auditing the V2 temporal semantics,
-- then rerunning all formal panel benchmarks.
+Immediate next stage:
+- Vanilla Transformer — MAIN V2 / POST-TEMPORAL-FIX
 
-The architecture remains valid, but previous panel benchmark results are invalid as final evidence because the data contract changed.
+Then:
+- SWiM-style Transformer
+- Adaptive PathFormer frequency comparison
+- PathFormer mechanism ablation
+- multi-seed robustness / inference / interpretation
+
+Old panel results remain PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY.
 
 ---
 
@@ -423,17 +427,19 @@ Final accepted split counts:
 
 The final V2 panel is accepted and frozen for formal benchmarking.
 
-Overall result:
+---
 
-- FAIL
+## Historical Interim V2 Audit Failure — SUPERSEDED
 
-This failure was NOT due to Weekly future leakage remaining in the panel. Weekly availability itself passed with zero violations. The remaining issue concerned value semantics between provider-native Weekly bars and Weekly OHLCV reconstructed from canonical Daily data.
+This earlier audit outcome preceded the final Weekly-from-Daily rebuild and was superseded by the accepted final audit OVERALL PASS.
+
+The historical failure was NOT due to Weekly future leakage remaining in the panel. Weekly availability itself passed with zero violations. The remaining issue concerned value semantics between provider-native Weekly bars and Weekly OHLCV reconstructed from canonical Daily data.
 
 ---
 
-## Current Retained Formal Panel Counts (Interim V2)
+## Historical Interim V2 Counts — SUPERSEDED
 
-These are the current interim V2 counts, not guaranteed final post-Weekly-reconstruction counts.
+These counts/status notes describe the interim provider-native-Weekly stage and are retained only for provenance. The accepted Final V2 counts above are authoritative.
 
 Formal retained panel:
 
@@ -876,21 +882,17 @@ Normalization:
 
 ---
 
-## Important: Final Dataset V2 Implementation Is Implemented, But Full Rebuild Is Still Deferred
+## Historical Pre-Rebuild Gate — SUPERSEDED
 
-The research-design decisions are frozen, and the final Weekly-from-Daily Dataset Contract V2 implementation has now been written into the builder and the independent audit.
+The research-design decisions are frozen, and the final Weekly-from-Daily Dataset Contract V2 implementation has since been written into the builder and the independent audit.
 
-Current status is therefore:
+The earlier gate is superseded:
 
-- Dataset Contract design: FROZEN / IMPLEMENTED
-- Final V2 implementation: DONE (static code update only)
-- Final V2 empirical audit: IMPLEMENTED / STATIC VALIDATION PASS ONLY
-- Full dataset rebuild: PENDING / intentionally deferred
-- Formal model reruns: BLOCKED UNTIL FINAL V2 REBUILD + AUDIT PASS
+- final V2 rebuild has since completed
+- independent audit has since passed
+- model reruns are no longer blocked by this gate
 
-This is a deliberate gate: the builder and audit now enforce canonical Daily + reconstructed Weekly semantics, but the project is explicitly not allowed to rebuild the full panel or train models until the final panel run is executed under the repaired contract.
-
-Do not describe the current dataset directory as final / frozen until the post-implementation rebuild and audit gate are completed.
+The accepted final dataset directory is current; earlier statements describing a deferred rebuild are historical only.
 
 ---
 
@@ -917,8 +919,8 @@ Do not describe the current dataset directory as final / frozen until the post-i
 19. [DONE] Freeze final V2 counts / provenance.
 20. [DONE] Rerun deployable naive baselines: Zero predictor and global Train-Mean predictor.
 21. [DONE] Rerun Ridge.
-22. [IN PROGRESS] Rerun LSTM under the formal MAIN V2 contract.
-23. [PENDING] Rerun Vanilla Transformer.
+22. [DONE] LSTM MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN.
+23. [NEXT] Rerun Vanilla Transformer MAIN V2.
 24. [PENDING] Rerun SWiM-style Transformer.
 25. [PENDING] Rerun Adaptive PathFormer on Daily-only / Weekly-only / Daily+Weekly across 5d / 10d / 20d.
 26. [PENDING] Run PathFormer mechanism ablation: Single / Fixed / Static / Adaptive.
@@ -999,22 +1001,17 @@ Do not claim that the adaptive router is already validated.
 
 ---
 
-## Do Not Do / Current Priority
+## Current Formal Guardrails
 
-Until Dataset Contract V2 passes the independent temporal audit:
-
-- do not tune PathFormer hyperparameters
-- do not rerun long formal models
-- do not interpret old panel metrics as final results
-- do not claim adaptive routing works
-- do not claim Weekly helps forecasting
-- do not claim Daily+Weekly complementarity
+- PRE-TEMPORAL-FIX results are diagnostic only
 - do not change the target formula
-- do not add new features
 - do not change normalization
-- do not modify horizons
-- do not change dependencies unless required
-- do not overwrite old audit evidence
+- do not change horizons
+- do not overwrite frozen evidence
+- do not claim adaptive routing works before testing it
+- do not claim statistical significance before inference
+- do not claim multi-seed robustness from nominal seed 42
+- do not change dependencies mid-ladder unless necessary and documented
 
 The current code and data remain protected: this task is documentation-only and does not alter any source, dataset, raw data, or model artifacts.
 
@@ -2606,9 +2603,9 @@ Important clarification:
   - router activation analysis
   - financial regime interpretation
 
-### Phase 9 — Decision gate before formal adaptive-router ablation / interpretation
+### Phase 9 — Historical decision gate before formal adaptive-router ablation / interpretation
 
-Current status:
+Historical status at the earlier checkpoint:
 
 - Dataset V2 repair and audit gate: required before any formal benchmark interpretation
 - Ridge stable under the old pipeline: historically completed, but not valid for final conclusions under the repaired data contract
@@ -2618,9 +2615,7 @@ Current status:
 - Adaptive Multi-Scale PathFormer improved Transformer B: pending / next, and will only be interpreted after the repaired V2 audit passes
 - Formal adaptive-router ablation / interpretation: wait until the repaired dataset and the clean V2 benchmark sequence pass review
 
-The gate is no longer: "Should we start deep models?"
-
-It is now: "After the temporal repair passes the independent audit, and after the clean baseline re-benchmark is complete, will the PathFormer development run provide valid evidence for the formal adaptive multi-scale / router mechanism study?"
+This earlier checkpoint is superseded by the accepted final V2 audit and completed formal LSTM benchmark.
 
 ---
 
@@ -2633,7 +2628,9 @@ It is now: "After the temporal repair passes the independent audit, and after th
 
 ---
 
-## Immediate Execution Checklist (Most Urgent)
+## Historical Execution Checklist — SUPERSEDED
+
+This was an earlier execution checklist for the temporal-code repair and rebuild gate. It is retained only as provenance and does not reflect the current accepted status.
 
 1. [NEXT] Modify `scripts/python/panel_build_multiscale_dataset.py` so formal Weekly is deterministically aggregated from canonical Daily.
 2. [NEXT] Modify / extend `scripts/python/panel_verify_temporal_integrity.py` to validate the Weekly-from-Daily contract.
@@ -2644,7 +2641,7 @@ It is now: "After the temporal repair passes the independent audit, and after th
 7. [PENDING] Re-run Zero / Train-Mean / Ridge / LSTM / Vanilla / SWiM / Adaptive PathFormer.
 8. [PENDING] Mechanism ablation, robustness, inference, interpretation.
 
-Current control ladder for historical documentation:
+Historical control ladder for earlier documentation:
 
 Naive → Ridge → LSTM → Vanilla Transformer → SWiM-style Transformer → Adaptive Multi-Scale PathFormer
 
@@ -2674,26 +2671,26 @@ Therefore, if Daily+Weekly outperforms a single-frequency model, this alone does
 
 ---
 
-## Do Not Do / Current Priority
+## Historical Earlier-Stage Guardrails — SUPERSEDED
 
-Until Dataset Contract V2 passes the independent temporal audit:
+These guardrails describe the earlier pre-acceptance period before the final V2 audit passed. The accepted current guardrails are listed above under "Current Formal Guardrails".
 
-DO NOT:
+Earlier-stage restrictions included:
 
-- tune PathFormer hyperparameters
-- rerun long formal models
-- interpret old panel metrics as final results
-- claim adaptive routing works
-- claim Weekly helps forecasting
-- claim Daily+Weekly complementarity
-- change the target formula
-- add new features
-- change normalization
-- modify horizons
-- change dependencies unless required
-- overwrite old audit evidence
+- do not tune PathFormer hyperparameters
+- do not rerun long formal models
+- do not interpret old panel metrics as final results
+- do not claim adaptive routing works
+- do not claim Weekly helps forecasting
+- do not claim Daily+Weekly complementarity
+- do not change the target formula
+- do not add new features
+- do not change normalization
+- do not modify horizons
+- do not change dependencies unless required
+- do not overwrite old audit evidence
 
-Historical Next Action at Earlier Temporal-Code-Review Stage:
+Historical next action at the earlier temporal-code-review stage:
 
 ```bash
 git --no-pager diff -- \
