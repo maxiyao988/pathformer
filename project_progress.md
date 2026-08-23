@@ -885,7 +885,7 @@ These are not final scientific conclusions.
 - Lookback selection study completed; working window set (w_star):
   - hourly 24, halfday 20, daily 90, weekly 26
 
-### Task 8 Baselines (Established)
+### Historical Completed Milestones — PRE-TEMPORAL-FIX
 
 - Linear baseline completed.
 - Vanilla Transformer baseline completed.
@@ -906,7 +906,7 @@ These are not final scientific conclusions.
 
 ---
 
-## Baseline Snapshot (Reference)
+## Historical Baseline Snapshot — PRE-TEMPORAL-FIX
 
 ### Linear (test)
 
@@ -966,21 +966,21 @@ Mean±Std summary (test set):
 
 ## Ridge Panel Baseline — PRE-TEMPORAL-FIX / DIAGNOSTIC ONLY
 
-- Universe: frozen 17-stock balanced panel
+- Universe: historical 17-stock balanced panel
 - Daily / Weekly / Daily+Weekly
 - Horizons: 5d / 10d / 20d
 - Formal solver: **SVD**
 - Alpha selected using validation only
 - Cross-sectional Rank IC computed by date
 - Numerical solver robustness check passed
-- Final solver ambiguity resolved: **Ridge is frozen**
-- No leakage
+- Final solver ambiguity resolved: **Ridge is frozen** as an implementation choice for the historical V1 benchmark path
+- The V1 pipeline was initially treated as leakage-free, but the 2026-08-23 audit later identified Weekly week-start look-ahead and label-boundary overlap in the old panel contract.
 - Ridge does not beat naive baseline on pooled MSE
 - Weekly-only has the best pooled MSE at 5d / 10d / 20d
 - Daily+Weekly has the best mean cross-sectional Rank IC at 5d / 10d / 20d
 - Ridge predictions are under-dispersed
 
-This is the frozen formal machine-learning benchmark for the panel.
+This was the historically frozen V1 development benchmark for the panel and must be rerun on the final Dataset V2 before it can inform formal conclusions.
 
 Relevant files:
 
@@ -1540,7 +1540,7 @@ The panel SWiM benchmark follows the same frozen panel protocol as the other dee
 - validation Huber loss for checkpoint selection
 - restore best validation checkpoint before test evaluation
 - train-only per-ticker / per-frequency / per-feature normalization
-- raw future log-return target
+- forward log return computed from auto-adjusted Close (adjusted-price log return)
 - same frozen sample index as Ridge / LSTM / Vanilla
 - same pooled + ticker-average evaluation
 - same per-date cross-sectional Rank IC implementation
@@ -1924,7 +1924,7 @@ Formal benchmark tables should use the train mean, not the test mean.
 The repaired dataset should be treated as a new information-set version:
 
 - `Dataset Contract V1`: old / pre-temporal-fix / diagnostic
-- `Dataset Contract V2`: temporally repaired / formal
+- `Dataset Contract V2`: design frozen; final implementation and empirical acceptance pending OVERALL: PASS
 
 Desired V2 provenance fields:
 
@@ -1932,19 +1932,19 @@ Desired V2 provenance fields:
 - `daily_includes_anchor = True`
 - `weekly_availability_rule = actual_last_trading_day`
 - `split_purge_dates = 20`
-- `target_definition = forward_log_return`
+- `target_definition = forward_adjusted_price_log_return`
 
-Old formal outputs should be backed up, for example under:
+Old formal outputs should be backed up under the sealed V1 archive:
 
-- `dataset/audit/pre_alignment_fix/`
+- `dataset/audit/pre_temporal_fix_v1/`
 
 and post-fix results should not be silently mixed with pre-fix results.
 
 ---
 
-## Current Assessment
+## Historical Pre-Temporal-Fix Assessment — Superseded
 
-The current project status is now materially different from the earlier pre-freeze narrative.
+This section reflects the project state before the 2026-08-23 temporal-integrity reset. It does not represent the current panel empirical status, which remains blocked until the final Dataset V2 passes the independent audit.
 
 - FSLR full-frequency naive-fusion PathFormer remains a negative diagnostic result and should remain documented as such.
 - The active mainline is the frozen 17-stock Daily + Weekly panel on the shared sample index.
@@ -2538,7 +2538,7 @@ DO NOT:
 - change dependencies unless required
 - overwrite old audit evidence
 
-CURRENT NEXT ACTION:
+Historical Next Action at Earlier Temporal-Code-Review Stage:
 
 ```bash
 git --no-pager diff -- \
@@ -2547,7 +2547,14 @@ git --no-pager diff -- \
   scripts/python/panel_verify_temporal_integrity.py
 ```
 
-Do not rebuild the dataset until this diff has been reviewed.
+This was an earlier review step for the temporal-code diff, not the current authoritative next action.
+
+Current authoritative next action:
+
+- modify the Dataset V2 builder so Weekly is deterministically aggregated from canonical Daily;
+- modify / extend the independent audit to validate the final Weekly-from-Daily contract;
+- review the code and rebuild final V2;
+- require OVERALL: PASS before any model reruns.
 
 ---
 
