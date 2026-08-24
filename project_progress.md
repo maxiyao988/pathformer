@@ -63,6 +63,7 @@ Formal MAIN V2 benchmark outputs are written under:
 - `dataset/audit/main_v2/naive/`
 - `dataset/audit/main_v2/ridge/`
 - `dataset/audit/main_v2/lstm/`
+- `dataset/audit/main_v2/vanilla/`
 
 Benchmark status:
 
@@ -70,8 +71,8 @@ Benchmark status:
 - [DONE] Global Train-Mean predictor MAIN V2
 - [DONE] Ridge MAIN V2
 - [DONE] LSTM MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN
-- [NEXT] Vanilla Transformer MAIN V2
-- [PENDING] SWiM MAIN V2
+- [DONE] Vanilla Transformer MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / INDEPENDENTLY AUDITED / FROZEN
+- [NEXT] SWiM MAIN V2
 - [PENDING] Adaptive PathFormer MAIN V2
 
 Formal LSTM MAIN V2 status:
@@ -172,11 +173,13 @@ Training script SHA:
 
 - `NOT_CAPTURED`
 
-Next formal model stage:
+Historical transition note:
 
-- Vanilla Transformer — MAIN V2 / POST-TEMPORAL-FIX
+- At the time LSTM MAIN V2 was frozen, Vanilla Transformer was the next formal model stage.
+- Vanilla Transformer MAIN V2 has since been completed, independently audited, finalized, and frozen.
+- The current next formal model stage is SWiM MAIN V2.
 
-The next model must use:
+The historical benchmark contract that Vanilla followed remains:
 
 - same frozen dataset
 - same 17 tickers
@@ -186,8 +189,6 @@ The next model must use:
 - same horizons
 - same Daily-only / Weekly-only / Daily+Weekly frequency comparison
 - isolated namespace: `dataset/audit/main_v2/vanilla/`
-
-Do not start or run Vanilla Transformer yet.
 
 ---
 
@@ -517,9 +518,7 @@ Across matched cells:
 - Vanilla beats same-frequency Ridge Rank IC in only 1 / 9 cells.
 - Vanilla beats same-frequency LSTM Rank IC in only 1 / 9 cells.
 
-Therefore record:
-
-"The Vanilla Transformer is more competitive on pooled MSE than on cross-sectional ranking performance."
+The Vanilla Transformer is more competitive on pooled MSE than on cross-sectional ranking performance.
 
 Do NOT claim stronger ranking signal from Vanilla.
 
@@ -552,8 +551,6 @@ It is NOT evidence that adaptive routing works.
 
 ### Prediction-dispersion diagnostics
 
-Add a subsection explicitly documenting prediction under-dispersion.
-
 Formal PredStd/TrueStd:
 
 daily_only:
@@ -578,11 +575,7 @@ daily_only / 20d:
 - true_std = 0.191105
 - PredStd/TrueStd = 0.021760
 
-Record this as severe prediction under-dispersion / near-collapse.
-
-Use cautious language:
-
-"Several Vanilla configurations produce substantially under-dispersed predictions. The Daily 20d configuration is the clearest near-collapse case, with predicted standard deviation only about 2.2% of the true-return standard deviation. This helps explain why acceptable pooled MSE does not necessarily imply strong cross-sectional predictive variation."
+The Daily 20d result represents severe prediction under-dispersion / near-collapse. Several Vanilla configurations produce substantially under-dispersed predictions. The Daily 20d configuration is the clearest near-collapse case, with predicted standard deviation only about 2.2% of the true-return standard deviation. This helps explain why acceptable pooled MSE does not necessarily imply strong cross-sectional predictive variation.
 
 Do NOT invalidate the run because of this.
 It is a formal diagnostic result.
@@ -642,9 +635,7 @@ Rank-IC artifact SHA256:
 Training-history artifact SHA256:
 - b3c7839c39e129d19c6c01225f59adec39228e15cc1eee2192f4c881bbf31279
 
-Explicitly note:
-
-training-time script SHA == finalization-time script SHA
+Training-time script SHA == finalization-time script SHA.
 
 Therefore the frozen training script did not change between formal training and finalization.
 
@@ -679,6 +670,10 @@ D+W has higher trainable capacity than the single-frequency models, so later int
 
 Formal multi-seed robustness and inference remain future stages.
 
+The current status remains:
+- Vanilla Transformer MAIN V2: COMPLETE / INDEPENDENTLY AUDITED / FROZEN
+- SWiM MAIN V2: NEXT FORMAL MODEL STAGE
+
 Planned later seeds remain:
 - 0, 1, 21, 42, 3407
 
@@ -710,10 +705,9 @@ Vanilla Transformer MAIN V2 is now frozen and must not be modified or retrained 
 Dataset Contract V2 is accepted and frozen.
 
 Immediate next stage:
-- Vanilla Transformer — MAIN V2 / POST-TEMPORAL-FIX
+- SWiM MAIN V2
 
 Then:
-- SWiM-style Transformer
 - Adaptive PathFormer frequency comparison
 - PathFormer mechanism ablation
 - multi-seed robustness / inference / interpretation
@@ -1464,8 +1458,15 @@ The accepted final dataset directory is current; earlier statements describing a
 20. [DONE] Rerun deployable naive baselines: Zero predictor and global Train-Mean predictor.
 21. [DONE] Rerun Ridge.
 22. [DONE] LSTM MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / FROZEN.
-23. [NEXT] Rerun Vanilla Transformer MAIN V2.
-24. [PENDING] Rerun SWiM-style Transformer.
+23. [DONE] Vanilla Transformer MAIN V2 / POST-TEMPORAL-FIX / COMPLETE / INDEPENDENTLY AUDITED / FROZEN.
+24. [NEXT] SWiM MAIN V2:
+    static code audit
+    → namespace/provenance hardening
+    → user-manual smoke validation
+    → user-manual 9-cell training
+    → raw evidence audit
+    → finalize-only
+    → freeze.
 25. [PENDING] Rerun Adaptive PathFormer on Daily-only / Weekly-only / Daily+Weekly across 5d / 10d / 20d.
 26. [PENDING] Run PathFormer mechanism ablation: Single / Fixed / Static / Adaptive.
 27. [PENDING] Run at least 5-seed robustness.
